@@ -3,32 +3,81 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
-import { buildLeaderboard } from "@/lib/demo/leaderboard";
-import { loadGuestProfile, type GuestProfile } from "@/lib/demo/progress";
+import { loadGuestProfile } from "@/lib/demo/progress";
+import type { AppTranslations } from "@/lib/i18n/translations";
+import { createClient } from "@/lib/supabase/client";
+import {
+  buildDemoLeaderboard,
+  loadAccountLeaderboard,
+  type LeaderboardRow,
+} from "@/lib/supabase/leaderboard";
+
+function cityLabel(row: LeaderboardRow, t: AppTranslations): string {
+  if (row.cityKey) return t.leaderboard.cities[row.cityKey];
+  return row.city ?? "—";
+}
 
 export default function LeaderboardPage() {
   const { t } = usePreferences();
   const [loaded, setLoaded] = useState(false);
-  const [profile, setProfile] = useState<GuestProfile | null>(null);
+  const [isAccount, setIsAccount] = useState(false);
+  const [hasGuestProfile, setHasGuestProfile] = useState(false);
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
 
   useEffect(() => {
-    setProfile(loadGuestProfile());
-    setLoaded(true);
+    let active = true;
+
+    async function loadBoard() {
+      const supabase = createClient();
+
+      if (supabase) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const result = await loadAccountLeaderboard(supabase, user.id);
+          if (!active) return;
+
+          if (!result.error) {
+            setIsAccount(true);
+            setRows(result.rows);
+            setLoaded(true);
+            return;
+          }
+        }
+      }
+
+      const guestProfile = loadGuestProfile();
+      if (!active) return;
+
+      setIsAccount(false);
+      setHasGuestProfile(guestProfile !== null);
+      setRows(buildDemoLeaderboard(guestProfile));
+      setLoaded(true);
+    }
+
+    void loadBoard();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const rows = buildLeaderboard(profile);
-  const topRows = rows.slice(0, 3);
+  const topRows = loaded ? rows.slice(0, 3) : [];
 
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col justify-between gap-4 border-b border-arena-border pb-6 md:flex-row md:items-end">
         <div>
-          <p className="text-sm font-medium text-arena-gold">{t.leaderboard.eyebrow}</p>
+          <p className="text-sm font-medium text-arena-gold">
+            {isAccount ? t.leaderboard.accountEyebrow : t.leaderboard.eyebrow}
+          </p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight">
             {t.leaderboard.title}
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-arena-muted">
-            {t.leaderboard.body}
+            {isAccount ? t.leaderboard.accountBody : t.leaderboard.body}
           </p>
         </div>
         <Link
@@ -54,7 +103,7 @@ export default function LeaderboardPage() {
                 <p className="text-sm font-medium text-arena-gold">#{row.rank}</p>
                 <h2 className="mt-2 text-2xl font-semibold">{row.nickname}</h2>
               </div>
-              {row.isGuest && (
+              {row.isYou && (
                 <span className="rounded-full bg-arena-blue px-2.5 py-1 text-xs font-medium text-white">
                   {t.common.you}
                 </span>
@@ -71,7 +120,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
             <p className="mt-3 text-sm text-arena-muted">
-              {t.leaderboard.cities[row.cityKey]} | {row.winRate}%{" "}
+              {cityLabel(row, t)} | {row.winRate}%{" "}
               {t.leaderboard.columns.winrate.toLocaleLowerCase()} | {t.leaderboard.streak}{" "}
               {row.streak}
             </p>
@@ -102,13 +151,13 @@ export default function LeaderboardPage() {
                 {rows.map((row) => (
                   <tr
                     key={row.id}
-                    className={row.isGuest ? "bg-arena-elevated/60" : ""}
+                    className={row.isYou ? "bg-arena-elevated/60" : ""}
                   >
                     <td className="px-4 py-3 font-semibold">#{row.rank}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{row.nickname}</span>
-                        {row.isGuest && (
+                        {row.isYou && (
                           <span className="rounded bg-arena-blue px-1.5 py-0.5 text-xs text-white">
                             {t.common.you}
                           </span>
@@ -119,9 +168,7 @@ export default function LeaderboardPage() {
                     <td className="px-4 py-3">{row.level}</td>
                     <td className="px-4 py-3">{row.winRate}%</td>
                     <td className="px-4 py-3">{row.streak}</td>
-                    <td className="px-4 py-3 text-arena-muted">
-                      {t.leaderboard.cities[row.cityKey]}
-                    </td>
+                    <td className="px-4 py-3 text-arena-muted">{cityLabel(row, t)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,7 +177,7 @@ export default function LeaderboardPage() {
         )}
       </section>
 
-      {!profile && (
+      {loaded && !isAccount && !hasGuestProfile && (
         <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-muted">
           {t.leaderboard.guestHintStart}{" "}
           <Link href="/play" className="text-arena-text underline decoration-arena-gold">

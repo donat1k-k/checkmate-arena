@@ -286,8 +286,11 @@ export const translations = {
     },
     leaderboard: {
       eyebrow: "Demo leaderboard",
+      accountEyebrow: "Global leaderboard",
       title: "Global local loop board",
       body: "Demo players keep the arena populated while your guest rating is read from this browser.",
+      accountBody:
+        "Account players ranked by rating from Supabase. Demo players fill the board while the player base is small.",
       chaseRating: "Chase rating",
       loading: "Loading leaderboard...",
       columns: {
@@ -661,8 +664,11 @@ export const translations = {
     },
     leaderboard: {
       eyebrow: "Demo-лидерборд",
+      accountEyebrow: "Глобальный лидерборд",
       title: "Глобальный лидерборд локальной петли",
       body: "Демо-игроки поддерживают арену живой, пока рейтинг гостя берётся из этого браузера.",
+      accountBody:
+        "Игроки аккаунтов ранжированы по рейтингу из Supabase. Демо-игроки дополняют доску, пока игроков мало.",
       chaseRating: "Поднять рейтинг",
       loading: "Загружаем лидерборд...",
       columns: {

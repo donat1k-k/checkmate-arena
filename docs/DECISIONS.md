@@ -180,3 +180,29 @@ Stage 3.2 не переносит local matches/reviews в Supabase. Для сл
   наличии Supabase config читает public account match + review по `matchId`.
   Поэтому старые guest-ссылки остаются браузерными, а account review переживает
   reload и открывается по saved link после входа в другом браузере.
+
+## 2026-05-21 — Этап 3.4: Supabase leaderboard
+
+### Account-aware leaderboard
+- `/leaderboard` показывает глобальный список из Supabase `profiles`
+  (`order by rating desc`, limit 20) только при настроенном Supabase **и**
+  активной сессии. Гость или отсутствие Supabase/сессии — прежний demo/local
+  board. Причина: guest-рейтинг живёт в `localStorage`, а не в Supabase, поэтому
+  для гостя глобальный список не имеет своей строки — demo-board честнее.
+- Текущий пользователь помечается `isYou` по сравнению `profiles.id` с
+  `auth.uid()`; отдельного «me»-запроса нет, строка ищется в уже загруженном
+  top-списке.
+
+### Demo fallback
+- Если реальных аккаунтов меньше 5, список дополняется существующими
+  `DEMO_PLAYERS`, чтобы доска не выглядела пустой на раннем этапе. При 5+
+  аккаунтах demo-игроки не подмешиваются.
+- Города: demo-игроки используют i18n city keys, аккаунты — сырое
+  `profiles.city` (сейчас обычно пусто, показывается «—»). Маппинг сырого
+  города в i18n-ключи не делается — это не нужно для MVP.
+
+### Границы
+- Без realtime/polling: список читается один раз при заходе на страницу.
+  Обновление рейтинга в leaderboard видно после перезагрузки страницы.
+- `schema.sql` не менялся; RLS `profiles` (`select using (true)`) уже позволял
+  публичное чтение для leaderboard.

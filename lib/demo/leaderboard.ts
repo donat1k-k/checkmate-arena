@@ -1,5 +1,3 @@
-import { getRatingLevel, type GuestProfile } from "@/lib/demo/progress";
-
 export type DemoLeaderboardCityKey =
   | "moscow"
   | "almaty"
@@ -18,7 +16,7 @@ export type DemoLeaderboardPlayer = {
   isGuest?: boolean;
 };
 
-const DEMO_PLAYERS: DemoLeaderboardPlayer[] = [
+export const DEMO_PLAYERS: DemoLeaderboardPlayer[] = [
   {
     id: "queenline",
     nickname: "Queenline",
@@ -60,31 +58,3 @@ const DEMO_PLAYERS: DemoLeaderboardPlayer[] = [
     streak: 0,
   },
 ];
-
-export function buildLeaderboard(profile: GuestProfile | null) {
-  const players: DemoLeaderboardPlayer[] = profile
-    ? [
-        ...DEMO_PLAYERS,
-        {
-          id: profile.id,
-          nickname: profile.nickname,
-          cityKey: "guest",
-          rating: profile.rating,
-          winRate: profile.wins === 0 && profile.losses === 0 ? 0 : Math.round(
-            (profile.wins / (profile.wins + profile.losses + profile.draws)) *
-              100,
-          ),
-          streak: profile.streak,
-          isGuest: true,
-        },
-      ]
-    : DEMO_PLAYERS;
-
-  return [...players]
-    .sort((first, second) => second.rating - first.rating)
-    .map((player, index) => ({
-      ...player,
-      level: getRatingLevel(player.rating),
-      rank: index + 1,
-    }));
-}

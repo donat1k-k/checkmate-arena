@@ -362,7 +362,40 @@ QA + точечный hardening без нового этапа.
 - Симптом «checkmate показан как check» воспроизвести не удалось: `/play` —
   hot-seat без бота, ход за чёрных делает сам игрок; шах корректно ждёт хода.
 
+## Этап 3.4 — Supabase leaderboard. Статус: завершён (2026-05-21)
+
+### Сделано
+- `lib/supabase/leaderboard.ts` — `loadAccountLeaderboard()` читает top-профили
+  из Supabase `profiles` (select id/nickname/rating/wins/losses/draws/streak/city,
+  `order by rating desc`, limit 20), считает winrate и level, выставляет `isYou`
+  для текущего пользователя. `buildDemoLeaderboard()` строит ту же row-структуру
+  для guest/demo-режима.
+- `lib/demo/leaderboard.ts` — `DEMO_PLAYERS` теперь экспортируется как fallback;
+  старый `buildLeaderboard` удалён (логика перенесена в `lib/supabase/leaderboard.ts`).
+- `app/leaderboard/page.tsx` — leaderboard стал account-aware: при настроенном
+  Supabase и активной сессии показывает глобальный список аккаунтов с подсветкой
+  строки «You»; гость или отсутствие Supabase/сессии — прежний demo/local board.
+- Если реальных аккаунтов меньше 5, доска дополняется demo-игроками, чтобы не
+  выглядеть пустой. Города аккаунтов берутся из `profiles.city` (сейчас обычно
+  пусто → «—»), demo-города — из i18n.
+- i18n: добавлены `leaderboard.accountEyebrow` / `leaderboard.accountBody` (RU/EN).
+
+### Границы этапа
+- Realtime, polling, rooms/multiplayer не делались; schema.sql, chess engine и
+  auth flow не менялись; guest data не мигрировалась.
+
+### Команды и проверки
+- `npm run build` — OK. `git diff --check` — OK (только LF → CRLF warnings).
+- In-app browser, активная Supabase-сессия: `/leaderboard` показывает «Global
+  leaderboard», 6 строк (5 demo + аккаунт `test`), сортировка по рейтингу,
+  строка пользователя подсвечена и помечена «You».
+
+### Что проверить вручную
+- Залогиненным открыть `/leaderboard`: глобальный список из Supabase, своя
+  строка помечена «You».
+- Гостем (или без `.env.local`) открыть `/leaderboard`: demo/local board с
+  guest-строкой как раньше.
+- При большом числе аккаунтов (>= 5) demo-игроки не должны подмешиваться.
+
 ## Следующий этап
-Stage 3.4 — Supabase leaderboard/account ranking surface. В этом этапе
-leaderboard по-прежнему остаётся demo/local, realtime и multiplayer rooms не
-начинались.
+Stage 3.5+ — пока не определён. Realtime и multiplayer rooms не начинались.
