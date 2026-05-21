@@ -192,6 +192,10 @@ export default function PlayPage() {
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
       setSavePending(false);
+    }).catch(() => {
+      if (!active) return;
+      setSaveError(true);
+      setSavePending(false);
     });
 
     return () => {
