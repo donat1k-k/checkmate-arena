@@ -5,7 +5,11 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import { buildDemoCoachReview } from "@/lib/demo/coach";
-import { loadMatches, type LocalMatch } from "@/lib/demo/progress";
+import {
+  getOpponentDisplayName,
+  loadMatches,
+  type LocalMatch,
+} from "@/lib/demo/progress";
 
 function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -47,6 +51,10 @@ export default function ReviewPage() {
 
   const review = buildDemoCoachReview(match, locale);
   const lastSequence = match.sanMoves.slice(-6);
+  const opponentName = getOpponentDisplayName(
+    match.opponentNickname,
+    t.match.opponent.localRival,
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -82,7 +90,7 @@ export default function ReviewPage() {
               </span>
             </p>
             <p className="mt-2 text-sm text-arena-muted">
-              {t.common.vs} {match.opponentNickname}
+              {t.common.vs} {opponentName}
             </p>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">

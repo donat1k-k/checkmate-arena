@@ -69,10 +69,21 @@ export const translations = {
         light: "Light",
       },
     },
+    errors: {
+      authRequired: "Sign in to continue.",
+      invalidCredentials: "Check your email and password, then try again.",
+      sessionExpired: "Your session expired. Sign in again.",
+      backendUnavailable: "The service is unavailable right now.",
+      requestFailed: "The request failed. Try again.",
+      saveFailed: "We could not save your progress. Try again.",
+    },
     match: {
       color: {
         w: "White",
         b: "Black",
+      },
+      opponent: {
+        localRival: "Local Rival",
       },
       result: {
         win: "Win",
@@ -242,6 +253,14 @@ export const translations = {
         streak: "Streak",
         city: "City",
       },
+      cities: {
+        moscow: "Moscow",
+        almaty: "Almaty",
+        novosibirsk: "Novosibirsk",
+        astana: "Astana",
+        other: "Other",
+        guest: "Guest",
+      },
       streak: "streak",
       guestHintStart: "Your guest row appears after you",
       guestHintLink: "choose a nickname",
@@ -376,10 +395,21 @@ export const translations = {
         light: "Светлая",
       },
     },
+    errors: {
+      authRequired: "Войдите, чтобы продолжить.",
+      invalidCredentials: "Проверьте email и пароль и попробуйте ещё раз.",
+      sessionExpired: "Сессия истекла. Войдите снова.",
+      backendUnavailable: "Сервис сейчас недоступен.",
+      requestFailed: "Запрос не выполнился. Попробуйте ещё раз.",
+      saveFailed: "Не удалось сохранить прогресс. Попробуйте ещё раз.",
+    },
     match: {
       color: {
         w: "Белые",
         b: "Чёрные",
+      },
+      opponent: {
+        localRival: "Локальный соперник",
       },
       result: {
         win: "Победа",
@@ -418,7 +448,7 @@ export const translations = {
       intro:
         "Шахматный матч должен оставлять след: рейтинг, прогресс профиля, давление лидерборда и короткий post-game разбор.",
       localIntro:
-        "Играйте в текущий MVP без backend. Ник гостя, история матчей и локальный review flow остаются в этом браузере.",
+        "Играйте в текущий MVP без backend. Ник гостя, история матчей и локальный разбор остаются в этом браузере.",
       playCta: "Играть Ranked Demo",
       leaderboardCta: "Смотреть лидерборд",
       signals: [
@@ -451,7 +481,7 @@ export const translations = {
     },
     play: {
       loading: "Загружаем локальную арену...",
-      nicknameError: "Введите ник, чтобы начать локальную ranked demo.",
+      nicknameError: "Введите ник, чтобы начать локальный ranked demo-матч.",
       entryEyebrow: "Вход на арену",
       entryTitle: "Начните ranked-матч гостем.",
       entryBody:
@@ -459,16 +489,16 @@ export const translations = {
       startRating: "Стартовый рейтинг",
       opponent: "Соперник",
       review: "Разбор",
-      afterFinish: "После финиша",
+      afterFinish: "После партии",
       guestProfile: "Профиль гостя",
       chooseNickname: "Выберите ник",
-      localProgress: "Demo-прогресс остаётся в этом браузере для текущего MVP.",
+      localProgress: "Демо-прогресс сохраняется в этом браузере для текущего MVP.",
       nickname: "Ник",
       enterArena: "Войти на арену",
       localRanked: "Локальный Ranked",
       hotSeat: "Hot-seat без таймера",
       progressAsWhite:
-        "Guest-прогресс идёт за белыми через рейтинг, разбор и историю матчей.",
+        "Прогресс гостя записывается за белых: рейтинг, разбор и история матчей.",
       yourRating: "Ваш рейтинг",
       level: "Уровень",
       blackPieces: "Чёрные фигуры",
@@ -499,7 +529,7 @@ export const translations = {
         `Гость уровня ${level}: локальных ranked demo матчей в этом браузере - ${games}.`,
       joined: "Создан",
       peakRating: "Пиковый рейтинг",
-      currentRating: "Текущий рейтинг петли",
+      currentRating: "Текущий рейтинг",
       playAgain: "Сыграть ещё",
       stats: {
         rating: "Рейтинг",
@@ -525,7 +555,7 @@ export const translations = {
       latestSignal: "Последний сигнал",
       noResultTitle: "Результатов матчей пока нет",
       noResultBody:
-        "Завершите первую локальную ranked demo, чтобы зажечь историю и coach review.",
+        "Завершите первую локальную ranked demo, чтобы открыть историю и разбор.",
       reviewLatest: "Разобрать последний",
       startMatchShort: "Начать матч",
       history: "История матчей",
@@ -535,8 +565,8 @@ export const translations = {
     },
     leaderboard: {
       eyebrow: "Demo-лидерборд",
-      title: "Глобальная доска локальной петли",
-      body: "Demo-игроки наполняют арену, пока guest-рейтинг читается из этого браузера.",
+      title: "Глобальный лидерборд локальной петли",
+      body: "Демо-игроки поддерживают арену живой, пока рейтинг гостя берётся из этого браузера.",
       chaseRating: "Поднять рейтинг",
       loading: "Загружаем лидерборд...",
       columns: {
@@ -547,6 +577,14 @@ export const translations = {
         winrate: "Winrate",
         streak: "Streak",
         city: "Город",
+      },
+      cities: {
+        moscow: "Москва",
+        almaty: "Алматы",
+        novosibirsk: "Новосибирск",
+        astana: "Астана",
+        other: "Другой город",
+        guest: "Гость",
       },
       streak: "серия",
       guestHintStart: "Ваша guest-строка появится после того, как вы",
@@ -609,7 +647,7 @@ export const translations = {
         tradeTraining:
           "Тренируйте расчёт разменов: сравнивайте угрозы до и после каждого взятия.",
         candidateTraining:
-          "Тренируйте candidate moves: назовите один улучшающий и один форсированный ход перед выбором.",
+          "Тренируйте ходы-кандидаты: назовите один улучшающий и один форсированный ход перед выбором.",
       },
     },
     pro: {

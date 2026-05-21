@@ -4,7 +4,8 @@ import type { GameOutcome } from "@/lib/chess/engine";
 const PROFILE_KEY = "checkmate-arena.guest-profile.v1";
 const MATCHES_KEY = "checkmate-arena.local-matches.v1";
 const DEFAULT_RATING = 1000;
-const OPPONENT_NICKNAME = "Local Rival";
+const LOCAL_RIVAL_OPPONENT_ID = "local-rival";
+const LEGACY_LOCAL_RIVAL_NICKNAME = "Local Rival";
 
 export type MatchResult = "win" | "loss" | "draw";
 
@@ -229,7 +230,7 @@ export function recordCompletedMatch(
     id: input.id,
     guestId: profile.id,
     guestNickname: profile.nickname,
-    opponentNickname: OPPONENT_NICKNAME,
+    opponentNickname: LOCAL_RIVAL_OPPONENT_ID,
     playerColor: "w",
     result,
     finish: finishFromOutcome(input.outcome),
@@ -248,6 +249,16 @@ export function recordCompletedMatch(
   saveGuestProfile(nextProfile);
 
   return { inserted: true, match, profile: nextProfile };
+}
+
+export function getOpponentDisplayName(
+  opponentNickname: string,
+  localRivalLabel: string,
+): string {
+  return opponentNickname === LOCAL_RIVAL_OPPONENT_ID ||
+    opponentNickname === LEGACY_LOCAL_RIVAL_NICKNAME
+    ? localRivalLabel
+    : opponentNickname;
 }
 
 export function getGamesPlayed(profile: GuestProfile): number {

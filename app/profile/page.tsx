@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import {
   getGamesPlayed,
+  getOpponentDisplayName,
   getRatingLevel,
   getWinRate,
   loadGuestProfile,
@@ -83,6 +84,12 @@ export default function ProfilePage() {
     },
   ];
   const recentMatch = matches[0];
+  const recentOpponent = recentMatch
+    ? getOpponentDisplayName(
+        recentMatch.opponentNickname,
+        t.match.opponent.localRival,
+      )
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -163,7 +170,7 @@ export default function ProfilePage() {
           {recentMatch ? (
             <>
               <h2 className="mt-2 text-2xl font-semibold">
-                {t.match.result[recentMatch.result]} {t.common.vs} {recentMatch.opponentNickname}
+                {t.match.result[recentMatch.result]} {t.common.vs} {recentOpponent}
               </h2>
               <p className="mt-3 text-sm text-arena-muted">
                 {formatDate(recentMatch.finishedAt, locale)} | {recentMatch.moveCount}{" "}
@@ -238,7 +245,11 @@ export default function ProfilePage() {
                       {match.ratingDelta}
                     </span>
                     <span className="text-sm text-arena-muted">
-                      {t.common.vs} {match.opponentNickname}
+                      {t.common.vs}{" "}
+                      {getOpponentDisplayName(
+                        match.opponentNickname,
+                        t.match.opponent.localRival,
+                      )}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-arena-muted">

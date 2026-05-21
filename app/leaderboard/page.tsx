@@ -71,7 +71,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
             <p className="mt-3 text-sm text-arena-muted">
-              {row.isGuest ? t.common.guest : row.city} | {row.winRate}%{" "}
+              {t.leaderboard.cities[row.cityKey]} | {row.winRate}%{" "}
               {t.leaderboard.columns.winrate.toLocaleLowerCase()} | {t.leaderboard.streak}{" "}
               {row.streak}
             </p>
@@ -120,7 +120,7 @@ export default function LeaderboardPage() {
                     <td className="px-4 py-3">{row.winRate}%</td>
                     <td className="px-4 py-3">{row.streak}</td>
                     <td className="px-4 py-3 text-arena-muted">
-                      {row.isGuest ? t.common.guest : row.city}
+                      {t.leaderboard.cities[row.cityKey]}
                     </td>
                   </tr>
                 ))}

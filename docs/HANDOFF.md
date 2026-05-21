@@ -135,6 +135,40 @@ in-app browser, поэтому интерактивный click-through оста
 - Убедиться, что SAN-нотация и сохранённая история матчей не меняются при
   переключении языка.
 
+## Этап 2.6.1 — Pre-backend cleanup. Статус: завершён (2026-05-21)
+
+### Сделано
+- Demo-соперник вынесен в translations: `/play`, Profile и Review теперь
+  показывают локализованное имя вместо захардкоженного UI-copy.
+- Новые local matches сохраняют технический opponent id `local-rival`; старые
+  матчи с legacy-значением `Local Rival` продолжают читаться и получают тот же
+  локализованный display fallback.
+- Demo-города Leaderboard переведены на стабильные city keys и локализуются в
+  top-3 карточках и таблице.
+- В translations добавлены базовые future auth/backend error keys без
+  подключения auth, API или Supabase.
+- Точечно приглажены несколько неестественных RU-строк в текущем i18n copy.
+  Rating loop и chess engine не менялись.
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK, только предупреждения Git о будущем LF → CRLF для
+  изменённых файлов.
+- In-app browser: RU `/play`, `/profile`, `/review/[matchId]` показывают
+  локализованного demo-соперника для уже сохранённого local match; RU
+  `/leaderboard` показывает локализованные города в карточках и таблице.
+- In-app browser: EN `/play` показывает `Local Rival`, EN `/leaderboard`
+  показывает английские city labels.
+
+### Что проверить вручную
+- Переключить RU/EN и открыть `/play`, Profile history и Review уже
+  сохранённого local match: имя demo-соперника должно следовать выбранному
+  языку.
+- Открыть `/leaderboard` на RU/EN и проверить city labels в top-3 и таблице,
+  включая guest row и `Other`.
+- Завершить новый local match и убедиться, что результат, рейтинг, Profile и
+  Review продолжают работать как в этапе 2.6.
+
 ## Следующий этап — после отдельного подтверждения
 - Перенести локальные profile / matches / reviews в Supabase persistence.
 - Согласовать Auth и границу между guest progress и аккаунтом.

@@ -207,7 +207,7 @@ export default function PlayPage() {
             </div>
             <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
               <p className="text-xs text-arena-muted">{t.play.opponent}</p>
-              <p className="mt-1 font-semibold">Local Rival</p>
+              <p className="mt-1 font-semibold">{t.match.opponent.localRival}</p>
             </div>
             <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
               <p className="text-xs text-arena-muted">{t.play.review}</p>
@@ -256,7 +256,7 @@ export default function PlayPage() {
             </span>
           </div>
           <h1 className="mt-3 text-3xl font-bold tracking-tight">
-            {profile.nickname} {t.common.vs} Local Rival
+            {profile.nickname} {t.common.vs} {t.match.opponent.localRival}
           </h1>
           <p className="mt-2 text-sm text-arena-muted">
             {t.play.progressAsWhite}
@@ -284,7 +284,7 @@ export default function PlayPage() {
                 LR
               </span>
               <div>
-                <p className="font-semibold">Local Rival</p>
+                <p className="font-semibold">{t.match.opponent.localRival}</p>
                 <p className="text-sm text-arena-muted">{t.play.blackPieces}</p>
               </div>
             </div>
