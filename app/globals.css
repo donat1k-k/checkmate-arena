@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-arena-bg: #0d0f12;
+  --color-arena-panel: #16191f;
+  --color-arena-elevated: #1e222a;
+  --color-arena-border: #262b33;
+  --color-arena-text: #e8eaed;
+  --color-arena-muted: #8b929e;
+  --color-arena-blue: #3b82f6;
+  --color-arena-gold: #d4af37;
+  --color-arena-win: #3fb950;
+  --color-arena-loss: #f85149;
+}
+
+html,
+body {
+  background-color: var(--color-arena-bg);
+  color: var(--color-arena-text);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
