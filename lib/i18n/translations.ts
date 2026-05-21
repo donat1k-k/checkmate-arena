@@ -69,6 +69,31 @@ export const translations = {
         light: "Light",
       },
     },
+    auth: {
+      signIn: "Sign in",
+      signUp: "Sign up",
+      signOut: "Sign out",
+      signInTitle: "Sign in to save progress",
+      signUpTitle: "Create your arena account",
+      emailLabel: "Email",
+      passwordLabel: "Password",
+      nicknameLabel: "Nickname",
+      signInCta: "Sign in",
+      signUpCta: "Create account",
+      haveAccount: "Already have an account?",
+      noAccount: "Need an account?",
+      account: "Account",
+      signedInAs: "Signed in as",
+      guestNotice: "Play as a guest now, or sign in to save progress later.",
+      emailConfirmSent:
+        "Check your email to confirm the account before returning to the arena.",
+      supabaseNotConfigured:
+        "Supabase is not configured. Add the public URL and anon key to .env.local to use account auth.",
+      playAsGuest: "Play as guest",
+      working: "Working...",
+      nicknameHint:
+        "Optional. Leave it blank to derive a nickname from your email.",
+    },
     errors: {
       authRequired: "Sign in to continue.",
       invalidCredentials: "Check your email and password, then try again.",
@@ -394,6 +419,32 @@ export const translations = {
         dark: "Тёмная",
         light: "Светлая",
       },
+    },
+    auth: {
+      signIn: "Войти",
+      signUp: "Регистрация",
+      signOut: "Выйти",
+      signInTitle: "Войдите, чтобы сохранить прогресс",
+      signUpTitle: "Создайте аккаунт арены",
+      emailLabel: "Email",
+      passwordLabel: "Пароль",
+      nicknameLabel: "Ник",
+      signInCta: "Войти",
+      signUpCta: "Создать аккаунт",
+      haveAccount: "Уже есть аккаунт?",
+      noAccount: "Нужен аккаунт?",
+      account: "Аккаунт",
+      signedInAs: "Вход:",
+      guestNotice:
+        "Можно играть гостем сразу или войти, чтобы сохранить прогресс позже.",
+      emailConfirmSent:
+        "Проверьте почту и подтвердите аккаунт перед возвращением на арену.",
+      supabaseNotConfigured:
+        "Supabase не настроен. Добавьте публичный URL и anon key в .env.local, чтобы использовать аккаунты.",
+      playAsGuest: "Играть гостем",
+      working: "Выполняем...",
+      nicknameHint:
+        "Необязательно. Если оставить пустым, ник будет создан из email.",
     },
     errors: {
       authRequired: "Войдите, чтобы продолжить.",

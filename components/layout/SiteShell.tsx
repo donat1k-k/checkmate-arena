@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AuthStatus from "@/components/auth/AuthStatus";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 
 export default function SiteShell({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
             >
               {t.common.settings}
             </Link>
+            <AuthStatus />
             <Link
               href="/play"
               className="rounded-md bg-arena-blue px-3 py-1.5 font-medium text-white hover:opacity-90"

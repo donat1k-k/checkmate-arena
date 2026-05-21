@@ -96,3 +96,50 @@ Supabase не трогает. Анонимная запись в БД полит
 Триггеры и сложные SQL-функции на MVP сознательно не используются.
 Строку `profiles` после регистрации вставляет клиент/сервер
 (`id = auth.uid()`) — это делается на Stage 3.2.
+
+## 2026-05-21 — Этап 3.2: Auth Layer
+
+### SDK и SSR-сессия
+- Для email auth установлены `@supabase/supabase-js` и `@supabase/ssr`.
+  Browser- и server-client работают только с
+  `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`; отдельный
+  service-role client не создаётся и `SUPABASE_SERVICE_ROLE_KEY` на этом
+  этапе не используется.
+- Сессия заведена через cookie-based SSR helper. `middleware.ts` обновляет
+  auth cookies на запросах, чтобы server-side код видел актуальную сессию.
+  Next.js 16 уже предупреждает о будущем переходе с `middleware.ts` на
+  `proxy.ts`, но Stage 3.2 оставляет имя из утверждённого spec.
+- Если public env не заданы, Supabase clients возвращают `null`, middleware
+  пропускает запрос без auth-refresh, а `/auth/*` показывает понятное
+  состояние «Supabase не настроен». Guest-flow и production build от этого
+  не зависят.
+
+### Email auth и profiles
+- Реализован только email/password flow: sign up, sign in, sign out.
+  Telegram/Google/OAuth и realtime не входят в этот слой.
+- Email confirmation задаётся настройкой Supabase Dashboard. Приложение
+  поддерживает оба режима: при немедленной сессии создаёт profile сразу,
+  а при confirmation показывает email notice и обрабатывает callback через
+  `/auth/callback`.
+- Строка `public.profiles` создаётся в коде через `ensureProfile()` после
+  успешной регистрации, первого входа или callback. Helper сначала читает
+  existing row, затем вставляет `id = auth.uid()` под anon key + RLS.
+  Триггеров и SQL-функций по-прежнему нет.
+- Ник для profile берётся из поля регистрации, затем из auth metadata или
+  локальной части email. Все варианты проходят через уже существующий
+  `sanitizeNickname()` и укладываются в `profiles_nickname_len`.
+- Auth UI не показывает сырые ошибки Supabase: ошибки маппятся на
+  существующие i18n keys `errors.*`.
+
+### Guest → account позже
+Stage 3.2 не переносит local matches/reviews в Supabase. Для следующего
+этапа миграция guest-прогресса проектируется как явное действие после
+входа:
+- сначала считать browser-local profile/matches и показать пользователю,
+  что будет перенесено;
+- profile merge делать отдельно от сохранения матчей, не затирая удалённый
+  server profile без подтверждения;
+- matches/reviews писать только после появления Stage 3.3 persistence и
+  сохранить localStorage до подтверждённого remote save;
+- после успешного переноса оставить понятный локальный state marker, чтобы
+  повторный вход не дублировал матчи.
