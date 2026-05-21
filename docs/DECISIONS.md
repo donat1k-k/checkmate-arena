@@ -143,3 +143,40 @@ Stage 3.2 не переносит local matches/reviews в Supabase. Для сл
   сохранить localStorage до подтверждённого remote save;
 - после успешного переноса оставить понятный локальный state marker, чтобы
   повторный вход не дублировал матчи.
+
+## 2026-05-21 — Этап 3.3: Account-aware profile + persistence
+
+### Разделение guest и account
+- Источник прогресса определяется в браузере по активной Supabase-сессии.
+  Без public env или без пользователя `/play`, `/profile` и старые review
+  продолжают работать через существующий guest `localStorage`.
+- При активной сессии `/profile` не смешивает browser-local историю гостя с
+  аккаунтом: профиль и history читаются из `profiles` / `matches`.
+  Автоматический перенос старых guest-матчей по-прежнему не начинается.
+- `games_played` отдельной колонкой schema не хранится. Экран аккаунта считает
+  его из `wins + losses + draws`, чтобы не менять Stage 3.1 schema.
+
+### Сохранение результата аккаунта
+- Stage 3.3 сохраняет тот же hot-seat ranked demo: владелец аккаунта играет
+  белыми против demo-соперника `local-rival`. `white_player_id` указывает на
+  profile, `black_player_id` остаётся `null`.
+- Завершённый account match вставляется в `matches`, базовый heuristic review
+  вставляется в `match_reviews`, затем обновляются rating/stats в `profiles`.
+  Это MVP-клиентский flow без SQL RPC/транзакции: save-effect на `/play`
+  защищён от повторного запуска на одном результате, а SQL schema и RLS не
+  расширялись.
+- Rating delta остаётся продуктово тем же, что в guest loop:
+  win `+25`, loss `-25`, draw `0`; `rating_change_white/black` сохраняют delta
+  матча, а `peak_rating`, wins/losses/draws/streak обновляются в profile.
+- Полный rating before/after для истории аккаунта schema не хранит. Сразу
+  после матча `/play` показывает путь рейтинга из загруженного profile
+  snapshot, а сохранённые account history/review используют persisted delta.
+
+### Review snapshot
+- Basic account review сохраняется как heuristic snapshot без Stockfish,
+  LLM и API: headline кладётся в `match_reviews.key_moment`, summary в
+  `coach_summary`, next habit в `training_advice`.
+- `/review/[matchId]` сначала ищет guest match в localStorage, затем при
+  наличии Supabase config читает public account match + review по `matchId`.
+  Поэтому старые guest-ссылки остаются браузерными, а account review переживает
+  reload и открывается по saved link после входа в другом браузере.

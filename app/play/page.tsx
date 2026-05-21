@@ -19,6 +19,15 @@ import {
   type LocalMatch,
 } from "@/lib/demo/progress";
 import type { AppTranslations } from "@/lib/i18n/translations";
+import { createClient } from "@/lib/supabase/client";
+import {
+  recordAccountMatch,
+  type CompletedAccountMatch,
+} from "@/lib/supabase/matches";
+import {
+  loadAccountProfile,
+  type AccountProfile,
+} from "@/lib/supabase/profiles";
 
 const RIVAL_RATING = 1035;
 
@@ -53,10 +62,11 @@ const TARGET_STYLE: React.CSSProperties = {
 };
 
 export default function PlayPage() {
-  const { t } = usePreferences();
+  const { locale, t } = usePreferences();
   const gameRef = useRef<ChessGame>(new ChessGame());
   const matchIdRef = useRef(createLocalId("match"));
   const matchCreatedAtRef = useRef(new Date().toISOString());
+  const accountSaveStartedRef = useRef(false);
   const [, forceUpdate] = useReducer((n: number) => n + 1, 0);
   const [selected, setSelected] = useState<Square | null>(null);
   const [promotion, setPromotion] = useState<{ from: Square; to: Square } | null>(
@@ -65,8 +75,16 @@ export default function PlayPage() {
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [profile, setProfile] = useState<GuestProfile | null>(null);
-  const [completedMatch, setCompletedMatch] = useState<LocalMatch | null>(null);
+  const [profileKind, setProfileKind] = useState<"account" | "guest">("guest");
+  const [profile, setProfile] = useState<AccountProfile | GuestProfile | null>(
+    null,
+  );
+  const [profileError, setProfileError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [savePending, setSavePending] = useState(false);
+  const [completedMatch, setCompletedMatch] = useState<
+    CompletedAccountMatch | LocalMatch | null
+  >(null);
 
   const game = gameRef.current;
   const status = game.status();
@@ -79,10 +97,48 @@ export default function PlayPage() {
       : resultText(status, t);
 
   useEffect(() => {
-    const savedProfile = loadGuestProfile();
-    setProfile(savedProfile);
-    setNickname(savedProfile?.nickname ?? "");
-    setProfileLoaded(true);
+    let active = true;
+
+    async function loadProfile() {
+      const supabase = createClient();
+
+      if (supabase) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const accountProfile = await loadAccountProfile(supabase, user);
+          if (!active) return;
+
+          if (accountProfile.profile) {
+            setProfileKind("account");
+            setProfile(accountProfile.profile);
+            setNickname(accountProfile.profile.nickname);
+          } else {
+            setProfileKind("account");
+            setProfileError(true);
+          }
+
+          setProfileLoaded(true);
+          return;
+        }
+      }
+
+      const savedProfile = loadGuestProfile();
+      if (!active) return;
+
+      setProfileKind("guest");
+      setProfile(savedProfile);
+      setNickname(savedProfile?.nickname ?? "");
+      setProfileLoaded(true);
+    }
+
+    void loadProfile();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -91,25 +147,68 @@ export default function PlayPage() {
     const outcome = game.status();
     if (outcome.state === "playing") return;
 
-    const saved = recordCompletedMatch(profile, {
-      id: matchIdRef.current,
+    const matchInput = {
       createdAt: matchCreatedAtRef.current,
       finalFen: game.fen,
       outcome,
       sanMoves: game.history().map((move) => move.san),
+    };
+
+    if (profileKind === "guest") {
+      const saved = recordCompletedMatch(profile as GuestProfile, {
+        id: matchIdRef.current,
+        ...matchInput,
+      });
+
+      setProfile(saved.profile);
+      setCompletedMatch(saved.match);
+      return;
+    }
+
+    if (accountSaveStartedRef.current) return;
+    accountSaveStartedRef.current = true;
+
+    const supabase = createClient();
+    if (!supabase) {
+      setSaveError(true);
+      return;
+    }
+
+    let active = true;
+    setSavePending(true);
+
+    void recordAccountMatch(supabase, profile as AccountProfile, {
+      ...matchInput,
+      locale,
+    }).then((saved) => {
+      if (!active) return;
+
+      if (saved.error || !saved.match) {
+        setSaveError(true);
+        setSavePending(false);
+        return;
+      }
+
+      setProfile(saved.profile);
+      setCompletedMatch(saved.match);
+      setSavePending(false);
     });
 
-    setProfile(saved.profile);
-    setCompletedMatch(saved.match);
-  }, [completedMatch, game, gameOver, profile]);
+    return () => {
+      active = false;
+    };
+  }, [completedMatch, game, gameOver, locale, profile, profileKind]);
 
   function reset() {
     gameRef.current = new ChessGame();
     matchIdRef.current = createLocalId("match");
     matchCreatedAtRef.current = new Date().toISOString();
+    accountSaveStartedRef.current = false;
     setSelected(null);
     setPromotion(null);
     setCompletedMatch(null);
+    setSaveError(false);
+    setSavePending(false);
     forceUpdate();
   }
 
@@ -189,6 +288,24 @@ export default function PlayPage() {
     return <p className="py-10 text-sm text-arena-muted">{t.play.loading}</p>;
   }
 
+  if (profileError) {
+    return (
+      <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
+        <p className="text-sm font-medium text-arena-gold">{t.auth.account}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t.play.accountErrorTitle}</h1>
+        <p className="mt-2 max-w-xl text-sm text-arena-muted">
+          {t.play.accountErrorBody}
+        </p>
+        <Link
+          href="/profile"
+          className="mt-4 inline-flex rounded-md border border-arena-border px-4 py-2 font-medium hover:border-arena-gold"
+        >
+          {t.common.profile}
+        </Link>
+      </section>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="grid gap-5 py-4 lg:grid-cols-[1fr_420px] lg:items-center">
@@ -249,7 +366,7 @@ export default function PlayPage() {
         <div>
           <div className="flex flex-wrap gap-2 text-sm">
             <span className="rounded-full border border-arena-border bg-arena-panel px-3 py-1 text-arena-gold">
-              {t.play.localRanked}
+              {profileKind === "account" ? t.play.accountRanked : t.play.localRanked}
             </span>
             <span className="rounded-full border border-arena-border bg-arena-panel px-3 py-1 text-arena-muted">
               {t.play.hotSeat}
@@ -259,7 +376,9 @@ export default function PlayPage() {
             {profile.nickname} {t.common.vs} {t.match.opponent.localRival}
           </h1>
           <p className="mt-2 text-sm text-arena-muted">
-            {t.play.progressAsWhite}
+            {profileKind === "account"
+              ? t.play.accountProgressAsWhite
+              : t.play.progressAsWhite}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:min-w-72">
@@ -365,7 +484,11 @@ export default function PlayPage() {
 
           {completedMatch && (
             <section className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-sm font-medium text-arena-gold">{t.play.savedResult}</p>
+              <p className="text-sm font-medium text-arena-gold">
+                {profileKind === "account"
+                  ? t.play.savedAccountResult
+                  : t.play.savedResult}
+              </p>
               <div className="mt-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                 <div>
                   <p className="text-2xl font-semibold">
@@ -395,6 +518,18 @@ export default function PlayPage() {
             </section>
           )}
 
+          {savePending && (
+            <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-muted">
+              {t.play.savingAccountResult}
+            </section>
+          )}
+
+          {saveError && (
+            <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-loss">
+              {t.errors.saveFailed}
+            </section>
+          )}
+
           <MoveList moves={game.history()} />
 
           <section className="rounded-lg border border-arena-border bg-arena-panel p-3">
@@ -408,7 +543,7 @@ export default function PlayPage() {
               </button>
               <button
                 onClick={reset}
-                disabled={gameOver && !completedMatch}
+                disabled={gameOver && !completedMatch && !saveError}
                 className="flex-1 rounded-md bg-arena-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
               >
                 {t.play.newGame}

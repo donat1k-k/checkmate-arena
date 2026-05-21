@@ -4,15 +4,81 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
-import { buildDemoCoachReview } from "@/lib/demo/coach";
+import {
+  buildDemoCoachReview,
+  type DemoCoachReview,
+} from "@/lib/demo/coach";
 import {
   getOpponentDisplayName,
   loadMatches,
   type LocalMatch,
+  type MatchFinish,
 } from "@/lib/demo/progress";
+import type { AppTranslations, Locale } from "@/lib/i18n/translations";
+import { createClient } from "@/lib/supabase/client";
+import {
+  loadAccountMatch,
+  type AccountMatch,
+} from "@/lib/supabase/matches";
+import {
+  loadAccountReview,
+  type AccountReview,
+} from "@/lib/supabase/reviews";
 
 function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function accountCoachFinish(match: AccountMatch): MatchFinish {
+  if (match.status === "resigned") return "resignation";
+  if (match.result === "draw") return "stalemate";
+  return "checkmate";
+}
+
+function accountCoachSource(match: AccountMatch): LocalMatch {
+  return {
+    id: match.id,
+    guestId: match.playerId ?? "account",
+    guestNickname: match.playerNickname,
+    opponentNickname: match.opponentNickname,
+    playerColor: match.playerColor,
+    result: match.result,
+    finish: accountCoachFinish(match),
+    ratingBefore: 0,
+    ratingAfter: match.ratingDelta,
+    ratingDelta: match.ratingDelta,
+    sanMoves: match.sanMoves,
+    moveCount: match.moveCount,
+    finalFen: match.finalFen ?? "",
+    createdAt: match.createdAt,
+    finishedAt: match.finishedAt,
+  };
+}
+
+function accountReviewView(
+  match: AccountMatch,
+  review: AccountReview | null,
+  locale: Locale,
+): DemoCoachReview {
+  const fallback = buildDemoCoachReview(accountCoachSource(match), locale);
+
+  return {
+    ...fallback,
+    headline: review?.headline ?? fallback.headline,
+    summary: review?.summary ?? fallback.summary,
+    trainingAdvice: review?.trainingAdvice ?? fallback.trainingAdvice,
+  };
+}
+
+function finishLabel(
+  localMatch: LocalMatch | null,
+  accountMatch: AccountMatch | null,
+  t: AppTranslations,
+): string {
+  if (localMatch) return t.match.finish[localMatch.finish];
+  if (accountMatch?.status === "resigned") return t.match.finish.resignation;
+  if (accountMatch?.result === "draw") return t.match.result.draw;
+  return t.match.finish.checkmate;
 }
 
 export default function ReviewPage() {
@@ -20,24 +86,63 @@ export default function ReviewPage() {
   const params = useParams<{ matchId?: string | string[] }>();
   const matchId = getMatchId(params.matchId);
   const [loaded, setLoaded] = useState(false);
-  const [match, setMatch] = useState<LocalMatch | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [localMatch, setLocalMatch] = useState<LocalMatch | null>(null);
+  const [accountMatch, setAccountMatch] = useState<AccountMatch | null>(null);
+  const [accountReview, setAccountReview] = useState<AccountReview | null>(null);
 
   useEffect(() => {
-    setMatch(loadMatches().find((savedMatch) => savedMatch.id === matchId) ?? null);
-    setLoaded(true);
+    let active = true;
+
+    async function loadReview() {
+      const savedLocalMatch =
+        loadMatches().find((savedMatch) => savedMatch.id === matchId) ?? null;
+
+      if (savedLocalMatch) {
+        if (!active) return;
+        setLocalMatch(savedLocalMatch);
+        setLoaded(true);
+        return;
+      }
+
+      const supabase = createClient();
+      if (!supabase || !matchId) {
+        if (!active) return;
+        setLoaded(true);
+        return;
+      }
+
+      const [savedMatch, savedReview] = await Promise.all([
+        loadAccountMatch(supabase, matchId),
+        loadAccountReview(supabase, matchId),
+      ]);
+      if (!active) return;
+
+      setAccountMatch(savedMatch.match);
+      setAccountReview(savedReview.review);
+      setLoadError(savedMatch.error !== null || savedReview.error !== null);
+      setLoaded(true);
+    }
+
+    void loadReview();
+
+    return () => {
+      active = false;
+    };
   }, [matchId]);
 
   if (!loaded) {
     return <p className="py-10 text-sm text-arena-muted">{t.review.loading}</p>;
   }
 
+  const match = localMatch ?? accountMatch;
   if (!match) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
         <p className="text-sm font-medium text-arena-gold">{t.review.eyebrow}</p>
         <h1 className="mt-1 text-2xl font-bold">{t.review.missingTitle}</h1>
         <p className="mt-2 max-w-xl text-sm text-arena-muted">
-          {t.review.missingBody}
+          {loadError ? t.errors.requestFailed : t.review.missingBody}
         </p>
         <Link
           href="/profile"
@@ -49,12 +154,15 @@ export default function ReviewPage() {
     );
   }
 
-  const review = buildDemoCoachReview(match, locale);
+  const review = localMatch
+    ? buildDemoCoachReview(localMatch, locale)
+    : accountReviewView(accountMatch as AccountMatch, accountReview, locale);
   const lastSequence = match.sanMoves.slice(-6);
   const opponentName = getOpponentDisplayName(
     match.opponentNickname,
     t.match.opponent.localRival,
   );
+  const isAccount = accountMatch !== null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -113,12 +221,25 @@ export default function ReviewPage() {
       <section className="grid gap-3 md:grid-cols-3">
         <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
           <p className="text-xs text-arena-muted">{t.review.finish}</p>
-          <p className="mt-1 font-semibold">{t.match.finish[match.finish]}</p>
+          <p className="mt-1 font-semibold">
+            {finishLabel(localMatch, accountMatch, t)}
+          </p>
         </div>
         <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-          <p className="text-xs text-arena-muted">{t.review.ratingPath}</p>
+          <p className="text-xs text-arena-muted">
+            {isAccount ? t.review.ratingDelta : t.review.ratingPath}
+          </p>
           <p className="mt-1 font-semibold">
-            {match.ratingBefore} {t.common.to} {match.ratingAfter}
+            {localMatch ? (
+              <>
+                {localMatch.ratingBefore} {t.common.to} {localMatch.ratingAfter}
+              </>
+            ) : (
+              <>
+                {match.ratingDelta > 0 ? "+" : ""}
+                {match.ratingDelta} {t.common.rating}
+              </>
+            )}
           </p>
         </div>
         <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
@@ -177,7 +298,7 @@ export default function ReviewPage() {
           <h2 className="mt-2 text-2xl font-semibold">{t.review.habitTitle}</h2>
           <p className="mt-3 text-sm">{review.trainingAdvice}</p>
           <p className="mt-3 text-xs text-arena-muted">
-            {t.review.boundary}
+            {isAccount ? t.review.accountBoundary : t.review.boundary}
           </p>
         </div>
       </section>

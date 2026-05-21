@@ -179,7 +179,7 @@ export const translations = {
       proCard: "Monetization without checkout",
     },
     play: {
-      loading: "Loading local arena...",
+      loading: "Loading arena...",
       nicknameError: "Enter a nickname to start the local ranked demo.",
       entryEyebrow: "Arena entry",
       entryTitle: "Start ranked as a guest.",
@@ -195,9 +195,12 @@ export const translations = {
       nickname: "Nickname",
       enterArena: "Enter Arena",
       localRanked: "Local Ranked",
+      accountRanked: "Account Ranked",
       hotSeat: "Untimed hot-seat",
       progressAsWhite:
         "Guest progress follows White through rating, review, and match history.",
+      accountProgressAsWhite:
+        "Account progress follows White through saved rating, review, and match history.",
       yourRating: "Your rating",
       level: "Level",
       blackPieces: "Black pieces",
@@ -207,6 +210,11 @@ export const translations = {
       finishedHint:
         "The finished result feeds review, profile history, and leaderboard rank.",
       savedResult: "Result saved locally",
+      savedAccountResult: "Result saved to account",
+      savingAccountResult: "Saving the finished result to your account...",
+      accountErrorTitle: "Account progress is unavailable",
+      accountErrorBody:
+        "We could not load the account profile for this arena session. Try again before starting a saved match.",
       resign: "Resign",
       newGame: "New Game",
     },
@@ -221,12 +229,18 @@ export const translations = {
     profile: {
       loading: "Loading profile...",
       eyebrow: "Guest profile",
+      accountEyebrow: "Account profile",
       emptyTitle: "No local player yet",
       emptyBody:
         "Choose a nickname on the play screen to start a browser-local rating, match history, and review trail.",
       startMatch: "Start local match",
       levelSummary: (level: number, games: number) =>
         `Level ${level} guest with ${games} local ranked demo matches saved in this browser.`,
+      accountLevelSummary: (level: number, games: number) =>
+        `Level ${level} account with ${games} saved ranked demo matches.`,
+      accountErrorTitle: "Account profile could not load",
+      accountErrorBody:
+        "Your session is active, but account progress could not be read right now.",
       joined: "Joined",
       peakRating: "Peak rating",
       currentRating: "Current loop rating",
@@ -235,6 +249,7 @@ export const translations = {
         rating: "Rating",
         level: "Level",
         peak: "Peak",
+        games: "Games",
         winrate: "Winrate",
         wins: "Wins",
         losses: "Losses",
@@ -246,6 +261,8 @@ export const translations = {
       badges: {
         founding: "Founding Guest",
         foundingDetail: "Local profile active",
+        account: "Arena Account",
+        accountDetail: "Supabase profile active",
         firstWin: "First Win",
         streak: "3 Win Streak",
         unlocked: "Unlocked",
@@ -256,11 +273,15 @@ export const translations = {
       noResultTitle: "No match result yet",
       noResultBody:
         "Finish the first local ranked demo to light up history and coach review.",
+      accountNoResultBody:
+        "Play the first match to save progress in your account.",
       reviewLatest: "Review latest",
       startMatchShort: "Start match",
       history: "Match history",
       newestFirst: "Newest local results first",
       noMatches: "No matches yet. Finish your first local ranked demo game.",
+      accountNewestFirst: "Newest saved results first",
+      accountNoMatches: "Play the first match to save progress in your account.",
       review: "Review",
     },
     leaderboard: {
@@ -293,14 +314,15 @@ export const translations = {
     review: {
       loading: "Loading review...",
       eyebrow: "Match Review",
-      missingTitle: "Review not found locally",
+      missingTitle: "Review not found",
       missingBody:
-        "This demo review is stored with local match history in the same browser that finished the game.",
+        "Guest reviews stay with local match history. Account reviews load from saved matches when they are available.",
       backToProfile: "Back to profile",
       heuristic: "Demo heuristic coach",
       result: "Result",
       finish: "Finish",
       ratingPath: "Rating path",
+      ratingDelta: "Rating change",
       moveTrace: "Move trace",
       fullMoves: (count: number) => `${count} full moves`,
       notesEyebrow: "Coach notes",
@@ -311,6 +333,8 @@ export const translations = {
       trainEyebrow: "Train next",
       habitTitle: "One next habit",
       boundary: "No engine evaluation or API analysis runs in this local MVP review.",
+      accountBoundary:
+        "This saved account review is still heuristic. No engine evaluation or API analysis runs here.",
       coach: {
         resultSignalTitle: "Result signal",
         resultSignalBody: ({ result, finish, moveCount }: ResultSignalArgs) =>
@@ -531,7 +555,7 @@ export const translations = {
       proCard: "Монетизация без checkout",
     },
     play: {
-      loading: "Загружаем локальную арену...",
+      loading: "Загружаем арену...",
       nicknameError: "Введите ник, чтобы начать локальный ranked demo-матч.",
       entryEyebrow: "Вход на арену",
       entryTitle: "Начните ranked-матч гостем.",
@@ -547,9 +571,12 @@ export const translations = {
       nickname: "Ник",
       enterArena: "Войти на арену",
       localRanked: "Локальный Ranked",
+      accountRanked: "Account Ranked",
       hotSeat: "Hot-seat без таймера",
       progressAsWhite:
         "Прогресс гостя записывается за белых: рейтинг, разбор и история матчей.",
+      accountProgressAsWhite:
+        "Прогресс аккаунта записывается за белых: рейтинг, разбор и история матчей.",
       yourRating: "Ваш рейтинг",
       level: "Уровень",
       blackPieces: "Чёрные фигуры",
@@ -559,6 +586,11 @@ export const translations = {
       finishedHint:
         "Завершённый результат идёт в разбор, историю профиля и позицию в лидерборде.",
       savedResult: "Результат сохранён локально",
+      savedAccountResult: "Результат сохранён в аккаунт",
+      savingAccountResult: "Сохраняем завершённый результат в аккаунт...",
+      accountErrorTitle: "Прогресс аккаунта недоступен",
+      accountErrorBody:
+        "Не удалось загрузить профиль аккаунта для этой сессии арены. Попробуйте снова перед сохранённым матчем.",
       resign: "Сдаться",
       newGame: "Новая партия",
     },
@@ -572,12 +604,18 @@ export const translations = {
     profile: {
       loading: "Загружаем профиль...",
       eyebrow: "Профиль гостя",
+      accountEyebrow: "Профиль аккаунта",
       emptyTitle: "Локального игрока пока нет",
       emptyBody:
         "Выберите ник на экране игры, чтобы начать локальный рейтинг, историю матчей и цепочку разборов.",
       startMatch: "Начать локальный матч",
       levelSummary: (level: number, games: number) =>
         `Гость уровня ${level}: локальных ranked demo матчей в этом браузере - ${games}.`,
+      accountLevelSummary: (level: number, games: number) =>
+        `Аккаунт уровня ${level}: сохранённых ranked demo матчей - ${games}.`,
+      accountErrorTitle: "Профиль аккаунта не загрузился",
+      accountErrorBody:
+        "Сессия активна, но прогресс аккаунта сейчас не удалось прочитать.",
       joined: "Создан",
       peakRating: "Пиковый рейтинг",
       currentRating: "Текущий рейтинг",
@@ -586,6 +624,7 @@ export const translations = {
         rating: "Рейтинг",
         level: "Уровень",
         peak: "Пик",
+        games: "Матчи",
         winrate: "Winrate",
         wins: "Победы",
         losses: "Поражения",
@@ -597,6 +636,8 @@ export const translations = {
       badges: {
         founding: "Founding Guest",
         foundingDetail: "Локальный профиль активен",
+        account: "Аккаунт арены",
+        accountDetail: "Профиль Supabase активен",
         firstWin: "Первая победа",
         streak: "3 победы подряд",
         unlocked: "Открыт",
@@ -607,11 +648,15 @@ export const translations = {
       noResultTitle: "Результатов матчей пока нет",
       noResultBody:
         "Завершите первую локальную ranked demo, чтобы открыть историю и разбор.",
+      accountNoResultBody:
+        "Сыграй первый матч, чтобы сохранить прогресс в аккаунте.",
       reviewLatest: "Разобрать последний",
       startMatchShort: "Начать матч",
       history: "История матчей",
       newestFirst: "Сначала новые локальные результаты",
       noMatches: "Матчей пока нет. Завершите первую локальную ranked demo.",
+      accountNewestFirst: "Сначала новые сохранённые результаты",
+      accountNoMatches: "Сыграй первый матч, чтобы сохранить прогресс в аккаунте.",
       review: "Разбор",
     },
     leaderboard: {
@@ -644,14 +689,15 @@ export const translations = {
     review: {
       loading: "Загружаем разбор...",
       eyebrow: "Разбор матча",
-      missingTitle: "Локальный разбор не найден",
+      missingTitle: "Разбор не найден",
       missingBody:
-        "Этот demo-разбор хранится вместе с локальной историей матчей в браузере, где партия была завершена.",
+        "Guest-разборы остаются с локальной историей матчей. Разборы аккаунта загружаются из сохранённых матчей, когда они доступны.",
       backToProfile: "Назад в профиль",
       heuristic: "Demo heuristic coach",
       result: "Результат",
       finish: "Финиш",
       ratingPath: "Путь рейтинга",
+      ratingDelta: "Изменение рейтинга",
       moveTrace: "След ходов",
       fullMoves: (count: number) => `Полных ходов: ${count}`,
       notesEyebrow: "Заметки Coach",
@@ -662,6 +708,8 @@ export const translations = {
       trainEyebrow: "Тренировать дальше",
       habitTitle: "Одна следующая привычка",
       boundary: "В этом локальном MVP-разборе нет engine evaluation и API-анализа.",
+      accountBoundary:
+        "Этот сохранённый разбор аккаунта всё ещё эвристический: engine evaluation и API-анализ здесь не запускаются.",
       coach: {
         resultSignalTitle: "Сигнал результата",
         resultSignalBody: ({ result, finish, moveCount }: ResultSignalArgs) =>
