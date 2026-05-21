@@ -421,5 +421,35 @@ QA + точечный hardening без нового этапа.
 ### Команды
 - `npm run build` — OK. `git diff --check` — OK (только LF → CRLF warning).
 
+## Этап 3.5 — Stability cleanup before deploy. Статус: завершён (2026-05-21)
+
+### Сделано
+
+**1. middleware.ts → proxy.ts (Next.js 16 file convention)**
+- `middleware.ts` удалён. Создан `proxy.ts` с переименованием функции `middleware` → `proxy`.
+- Supabase SSR cookie-refresh (`getClaims`) полностью сохранён.
+- Build-warning `"middleware" file convention is deprecated. Please use "proxy" instead.` больше не появляется.
+- Внутреннюю переменную `config` в теле функции переименовано в `supabaseConfig`, чтобы не конфликтовать с module-level `export const config`.
+
+**2. Flash темы и языка при загрузке**
+- Причина flash: `PreferencesProvider` стартует с дефолтами `en`/`dark`, затем useEffect читает localStorage → React ре-рендерит с реальными значениями.
+- Фикс A (тема): в `app/layout.tsx` добавлен inline-скрипт в `<head>`. Скрипт исполняется до рендера — читает `checkmate-arena.preferences.v1` из localStorage, ставит `data-theme` и `lang` на `<html>`, добавляет класс `prefs-loading`.
+- Фикс B (язык + тема): в `globals.css` добавлено `html.prefs-loading body { opacity: 0; }`. Тело скрыто, пока preferences не загружены.
+- Фикс C: в `PreferencesProvider` useEffect, сразу после `setLoaded(true)`, убирается класс `prefs-loading` — тело появляется уже с правильными цветами и текстом.
+- Итог: ни цветовой flash (dark→light), ни языковой flash (EN→RU) не видны.
+
+**3. .env.local в git**
+- Проверено: `.gitignore` содержит `.env*.local`. Файл не отслеживается гитом — `git ls-files .env.local` возвращает пусто.
+
+### Команды и проверки
+- `npm run build` — OK, warning про middleware исчез, TypeScript OK.
+- `git diff --check` — OK, только LF→CRLF warnings (обычные для этого репо).
+
+### Что проверить вручную
+- В браузере с сохранёнными preferences (RU / Light): при reload страницы не должно быть видимого мигания ни цветами, ни языком.
+- В чистом браузере (без localStorage): страница должна появляться сразу с EN / Dark без blank flash.
+- Войти / выйти из Supabase-аккаунта: session cookie refresh по-прежнему работает через `proxy.ts`.
+- Переключить тему и язык в `/settings` — убедиться, что изменения применяются мгновенно.
+
 ## Следующий этап
-Stage 3.5+ — пока не определён. Realtime и multiplayer rooms не начинались.
+Stage 4+ — пока не определён. Realtime и multiplayer rooms не начинались.

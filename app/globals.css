@@ -52,6 +52,10 @@ body {
     linear-gradient(90deg, rgba(175, 123, 8, 0.08), transparent 36rem);
 }
 
+html.prefs-loading body {
+  opacity: 0;
+}
+
 ::selection {
   background-color: rgba(59, 130, 246, 0.42);
   color: var(--color-arena-text);

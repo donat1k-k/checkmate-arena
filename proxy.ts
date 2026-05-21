@@ -8,15 +8,15 @@ function getSupabaseConfig() {
   return url && anonKey ? { anonKey, url } : null;
 }
 
-export async function middleware(request: NextRequest) {
-  const config = getSupabaseConfig();
+export async function proxy(request: NextRequest) {
+  const supabaseConfig = getSupabaseConfig();
 
-  if (!config) {
+  if (!supabaseConfig) {
     return NextResponse.next({ request });
   }
 
   let response = NextResponse.next({ request });
-  const supabase = createServerClient(config.url, config.anonKey, {
+  const supabase = createServerClient(supabaseConfig.url, supabaseConfig.anonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();

@@ -64,6 +64,7 @@ export function PreferencesProvider({
     setLocale(saved.locale);
     setTheme(saved.theme);
     setLoaded(true);
+    document.documentElement.classList.remove("prefs-loading");
   }, []);
 
   useEffect(() => {
