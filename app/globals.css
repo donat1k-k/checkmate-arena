@@ -14,6 +14,25 @@
   --color-arena-focus: #7dd3fc;
 }
 
+:root {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-arena-bg: #f4f7fb;
+  --color-arena-panel: #ffffff;
+  --color-arena-elevated: #e7edf6;
+  --color-arena-border: #c8d2e2;
+  --color-arena-text: #151b25;
+  --color-arena-muted: #566579;
+  --color-arena-blue: #2563eb;
+  --color-arena-gold: #af7b08;
+  --color-arena-win: #16813b;
+  --color-arena-loss: #d13b35;
+  --color-arena-focus: #0369a1;
+}
+
 html,
 body {
   background-color: var(--color-arena-bg);
@@ -25,6 +44,12 @@ body {
     linear-gradient(180deg, rgba(59, 130, 246, 0.14), transparent 24rem),
     linear-gradient(90deg, rgba(212, 175, 55, 0.05), transparent 38rem);
   -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="light"] body {
+  background-image:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.14), transparent 22rem),
+    linear-gradient(90deg, rgba(175, 123, 8, 0.08), transparent 36rem);
 }
 
 ::selection {

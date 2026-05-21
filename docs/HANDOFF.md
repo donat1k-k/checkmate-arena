@@ -100,6 +100,41 @@ in-app browser, поэтому интерактивный click-through оста
 - Проверить nav, hero, match screen, review cards и leaderboard table на
   узком mobile viewport.
 
+## Этап 2.6 — Settings + i18n foundation. Статус: завершён (2026-05-21)
+
+### Сделано
+- Добавлен browser-local preferences layer: `PreferencesProvider` хранит
+  `locale` (`RU` / `EN`) и `theme` (`Dark` / `Light`) в отдельном
+  `localStorage` key, выставляет `html lang` и `data-theme`.
+- Добавлена `/settings` с переключателями языка и темы, ссылка Settings
+  появилась в общем shell.
+- Заведён `lib/i18n/translations.ts` со словарями для shell, Home, Play,
+  Profile, Leaderboard, Review, Pro, Settings и основных chess UI labels.
+- Local match history продолжает хранить технические `win` / `loss` / `draw`
+  и finish keys; перевод result/finish и demo coach copy делается при
+  отображении.
+- Light theme добавлена через override существующих `arena-*` color tokens без
+  редизайна страниц и без изменений chess engine/product loop storage.
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK, только предупреждения Git о будущем LF → CRLF для
+  изменённых файлов.
+- In-app browser: `/settings` RU/EN и Dark/Light переключаются; после reload
+  сохраняются RU + Light, `html` получает `lang="ru"` и `data-theme="light"`.
+- In-app browser route pass в RU/Light: Home, Play, Profile, Leaderboard, Pro,
+  Review существующего локального матча.
+
+### Что проверить вручную
+- В чистом браузере открыть `/settings`, выбрать RU/EN и Dark/Light, затем
+  перезагрузить страницу и убедиться, что preferences сохранились.
+- Пройти локальную петлю на обоих языках: `/play` → завершить матч → Review →
+  Profile → Leaderboard.
+- Проверить Home, Play board area, таблицу Leaderboard и Pro в Light theme на
+  desktop и узком mobile viewport.
+- Убедиться, что SAN-нотация и сохранённая история матчей не меняются при
+  переключении языка.
+
 ## Следующий этап — после отдельного подтверждения
 - Перенести локальные profile / matches / reviews в Supabase persistence.
 - Согласовать Auth и границу между guest progress и аккаунтом.

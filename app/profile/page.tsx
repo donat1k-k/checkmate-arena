@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePreferences } from "@/components/settings/PreferencesProvider";
 import {
-  formatResult,
   getGamesPlayed,
   getRatingLevel,
   getWinRate,
@@ -12,15 +12,17 @@ import {
   type GuestProfile,
   type LocalMatch,
 } from "@/lib/demo/progress";
+import type { Locale } from "@/lib/i18n/translations";
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
+function formatDate(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
 
 export default function ProfilePage() {
+  const { locale, t } = usePreferences();
   const [loaded, setLoaded] = useState(false);
   const [profile, setProfile] = useState<GuestProfile | null>(null);
   const [matches, setMatches] = useState<LocalMatch[]>([]);
@@ -32,52 +34,51 @@ export default function ProfilePage() {
   }, []);
 
   if (!loaded) {
-    return <p className="py-10 text-sm text-arena-muted">Loading profile...</p>;
+    return <p className="py-10 text-sm text-arena-muted">{t.profile.loading}</p>;
   }
 
   if (!profile) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
-        <p className="text-sm font-medium text-arena-gold">Guest profile</p>
-        <h1 className="mt-1 text-2xl font-bold">No local player yet</h1>
+        <p className="text-sm font-medium text-arena-gold">{t.profile.eyebrow}</p>
+        <h1 className="mt-1 text-2xl font-bold">{t.profile.emptyTitle}</h1>
         <p className="mt-2 max-w-xl text-sm text-arena-muted">
-          Choose a nickname on the play screen to start a browser-local rating,
-          match history, and review trail.
+          {t.profile.emptyBody}
         </p>
         <Link
           href="/play"
           className="mt-4 inline-flex rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
         >
-          Start local match
+          {t.profile.startMatch}
         </Link>
       </section>
     );
   }
 
   const statItems = [
-    { label: "Rating", value: profile.rating },
-    { label: "Level", value: getRatingLevel(profile.rating) },
-    { label: "Peak", value: profile.peakRating },
-    { label: "Winrate", value: `${getWinRate(profile)}%` },
-    { label: "Wins", value: profile.wins },
-    { label: "Losses", value: profile.losses },
-    { label: "Draws", value: profile.draws },
-    { label: "Streak", value: profile.streak },
+    { label: t.profile.stats.rating, value: profile.rating },
+    { label: t.profile.stats.level, value: getRatingLevel(profile.rating) },
+    { label: t.profile.stats.peak, value: profile.peakRating },
+    { label: t.profile.stats.winrate, value: `${getWinRate(profile)}%` },
+    { label: t.profile.stats.wins, value: profile.wins },
+    { label: t.profile.stats.losses, value: profile.losses },
+    { label: t.profile.stats.draws, value: profile.draws },
+    { label: t.profile.stats.streak, value: profile.streak },
   ];
   const badgeItems = [
     {
-      label: "Founding Guest",
-      detail: "Local profile active",
+      label: t.profile.badges.founding,
+      detail: t.profile.badges.foundingDetail,
       active: true,
     },
     {
-      label: "First Win",
-      detail: profile.wins > 0 ? "Unlocked" : "Win one match",
+      label: t.profile.badges.firstWin,
+      detail: profile.wins > 0 ? t.profile.badges.unlocked : t.profile.badges.winOne,
       active: profile.wins > 0,
     },
     {
-      label: "3 Win Streak",
-      detail: profile.streak >= 3 ? "Unlocked" : "Build streak",
+      label: t.profile.badges.streak,
+      detail: profile.streak >= 3 ? t.profile.badges.unlocked : t.profile.badges.buildStreak,
       active: profile.streak >= 3,
     },
   ];
@@ -87,7 +88,7 @@ export default function ProfilePage() {
     <div className="flex flex-col gap-6">
       <section className="grid gap-5 rounded-lg border border-arena-border bg-arena-panel p-5 lg:grid-cols-[1fr_280px]">
         <div>
-          <p className="text-sm font-medium text-arena-gold">Guest profile</p>
+          <p className="text-sm font-medium text-arena-gold">{t.profile.eyebrow}</p>
           <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="grid h-20 w-20 shrink-0 place-items-center rounded-lg border border-arena-border bg-arena-elevated text-2xl font-semibold text-arena-gold">
               {profile.nickname.slice(0, 2).toUpperCase()}
@@ -97,29 +98,30 @@ export default function ProfilePage() {
                 {profile.nickname}
               </h1>
               <p className="mt-2 text-sm text-arena-muted">
-                Level {getRatingLevel(profile.rating)} guest with{" "}
-                {getGamesPlayed(profile)} local ranked demo matches saved in
-                this browser.
+                {t.profile.levelSummary(
+                  getRatingLevel(profile.rating),
+                  getGamesPlayed(profile),
+                )}
               </p>
               <p className="mt-1 text-xs text-arena-muted">
-                Joined {formatDate(profile.createdAt)}
+                {t.profile.joined} {formatDate(profile.createdAt, locale)}
               </p>
             </div>
           </div>
         </div>
         <div className="flex flex-col justify-between rounded-lg border border-arena-border bg-arena-elevated p-4">
           <div>
-            <p className="text-xs text-arena-muted">Peak rating</p>
+            <p className="text-xs text-arena-muted">{t.profile.peakRating}</p>
             <p className="mt-1 text-4xl font-semibold">{profile.peakRating}</p>
             <p className="mt-2 text-sm text-arena-muted">
-              Current loop rating: {profile.rating}
+              {t.profile.currentRating}: {profile.rating}
             </p>
           </div>
           <Link
             href="/play"
             className="mt-5 rounded-md bg-arena-blue px-4 py-2 text-center font-medium text-white hover:opacity-90"
           >
-            Play again
+            {t.profile.playAgain}
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:col-span-2">
@@ -137,8 +139,8 @@ export default function ProfilePage() {
 
       <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">Progress badges</p>
-          <h2 className="mt-2 text-2xl font-semibold">Arena status</h2>
+          <p className="text-sm font-medium text-arena-gold">{t.profile.badgesEyebrow}</p>
+          <h2 className="mt-2 text-2xl font-semibold">{t.profile.statusTitle}</h2>
           <div className="mt-4 grid gap-2">
             {badgeItems.map((badge) => (
               <div
@@ -157,15 +159,16 @@ export default function ProfilePage() {
         </div>
 
         <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">Latest signal</p>
+          <p className="text-sm font-medium text-arena-gold">{t.profile.latestSignal}</p>
           {recentMatch ? (
             <>
               <h2 className="mt-2 text-2xl font-semibold">
-                {formatResult(recentMatch.result)} vs {recentMatch.opponentNickname}
+                {t.match.result[recentMatch.result]} {t.common.vs} {recentMatch.opponentNickname}
               </h2>
               <p className="mt-3 text-sm text-arena-muted">
-                {formatDate(recentMatch.finishedAt)} | {recentMatch.moveCount} moves |{" "}
-                {recentMatch.ratingBefore} to {recentMatch.ratingAfter}
+                {formatDate(recentMatch.finishedAt, locale)} | {recentMatch.moveCount}{" "}
+                {t.common.moves} | {recentMatch.ratingBefore} {t.common.to}{" "}
+                {recentMatch.ratingAfter}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span
@@ -176,30 +179,29 @@ export default function ProfilePage() {
                   }
                 >
                   {recentMatch.ratingDelta > 0 ? "+" : ""}
-                  {recentMatch.ratingDelta} rating
+                  {recentMatch.ratingDelta} {t.common.rating}
                 </span>
                 <Link
                   href={`/review/${recentMatch.id}`}
                   className="rounded-md border border-arena-border px-3 py-1.5 font-medium hover:border-arena-gold"
                 >
-                  Review latest
+                  {t.profile.reviewLatest}
                 </Link>
               </div>
             </>
           ) : (
             <>
               <h2 className="mt-2 text-2xl font-semibold">
-                No match result yet
+                {t.profile.noResultTitle}
               </h2>
               <p className="mt-3 text-sm text-arena-muted">
-                Finish the first local ranked demo to light up history and coach
-                review.
+                {t.profile.noResultBody}
               </p>
               <Link
                 href="/play"
                 className="mt-4 inline-flex rounded-md border border-arena-border px-3 py-1.5 font-medium hover:border-arena-gold"
               >
-                Start match
+                {t.profile.startMatchShort}
               </Link>
             </>
           )}
@@ -208,12 +210,12 @@ export default function ProfilePage() {
 
       <section className="rounded-lg border border-arena-border bg-arena-panel">
         <div className="flex flex-col gap-1 border-b border-arena-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-semibold">Match history</h2>
-          <p className="text-sm text-arena-muted">Newest local results first</p>
+          <h2 className="font-semibold">{t.profile.history}</h2>
+          <p className="text-sm text-arena-muted">{t.profile.newestFirst}</p>
         </div>
         {matches.length === 0 ? (
           <p className="px-4 py-6 text-sm text-arena-muted">
-            No matches yet. Finish your first local ranked demo game.
+            {t.profile.noMatches}
           </p>
         ) : (
           <div className="divide-y divide-arena-border">
@@ -225,7 +227,7 @@ export default function ProfilePage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-md bg-arena-elevated px-2 py-1 font-medium">
-                      {formatResult(match.result)}
+                      {t.match.result[match.result]}
                     </span>
                     <span
                       className={
@@ -236,19 +238,20 @@ export default function ProfilePage() {
                       {match.ratingDelta}
                     </span>
                     <span className="text-sm text-arena-muted">
-                      vs {match.opponentNickname}
+                      {t.common.vs} {match.opponentNickname}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-arena-muted">
-                    {formatDate(match.finishedAt)} | {match.moveCount} moves |{" "}
-                    {match.ratingBefore} to {match.ratingAfter}
+                    {formatDate(match.finishedAt, locale)} | {match.moveCount}{" "}
+                    {t.common.moves} | {match.ratingBefore} {t.common.to}{" "}
+                    {match.ratingAfter}
                   </p>
                 </div>
                 <Link
                   href={`/review/${match.id}`}
                   className="rounded-md border border-arena-border px-3 py-1.5 text-center text-sm font-medium hover:border-arena-gold"
                 >
-                  Review
+                  {t.profile.review}
                 </Link>
               </article>
             ))}

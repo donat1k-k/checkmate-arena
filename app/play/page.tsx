@@ -5,11 +5,11 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import type { Color, Square } from "chess.js";
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
+import { usePreferences } from "@/components/settings/PreferencesProvider";
 import { ChessGame, type GameStatus, type PromotionPiece } from "@/lib/chess/engine";
 import {
   createGuestProfile,
   createLocalId,
-  formatResult,
   getRatingLevel,
   loadGuestProfile,
   recordCompletedMatch,
@@ -18,24 +18,24 @@ import {
   type GuestProfile,
   type LocalMatch,
 } from "@/lib/demo/progress";
+import type { AppTranslations } from "@/lib/i18n/translations";
 
-const COLOR_NAME: Record<Color, string> = { w: "White", b: "Black" };
 const RIVAL_RATING = 1035;
 
-function resultText(status: GameStatus): string {
+function resultText(status: GameStatus, t: AppTranslations): string {
   switch (status.state) {
     case "checkmate":
-      return `Checkmate - ${COLOR_NAME[status.winner]} wins`;
+      return t.match.status.checkmateWinner(t.match.color[status.winner]);
     case "resigned":
-      return `${COLOR_NAME[status.winner]} wins by resignation`;
+      return t.match.status.resignationWinner(t.match.color[status.winner]);
     case "stalemate":
-      return "Draw - stalemate";
+      return t.match.status.stalemate;
     case "draw":
       return status.reason === "insufficient"
-        ? "Draw - insufficient material"
+        ? t.match.status.insufficient
         : status.reason === "threefold"
-          ? "Draw - threefold repetition"
-          : "Draw - fifty-move rule";
+          ? t.match.status.threefold
+          : t.match.status.fiftyMove;
     default:
       return "";
   }
@@ -53,6 +53,7 @@ const TARGET_STYLE: React.CSSProperties = {
 };
 
 export default function PlayPage() {
+  const { t } = usePreferences();
   const gameRef = useRef<ChessGame>(new ChessGame());
   const matchIdRef = useRef(createLocalId("match"));
   const matchCreatedAtRef = useRef(new Date().toISOString());
@@ -73,9 +74,9 @@ export default function PlayPage() {
   const matchStatus =
     status.state === "playing"
       ? status.inCheck
-        ? `${COLOR_NAME[status.turn]} is in check`
-        : `${COLOR_NAME[status.turn]} to move`
-      : resultText(status);
+        ? t.match.status.inCheck(t.match.color[status.turn])
+        : t.match.status.toMove(t.match.color[status.turn])
+      : resultText(status, t);
 
   useEffect(() => {
     const savedProfile = loadGuestProfile();
@@ -117,7 +118,7 @@ export default function PlayPage() {
 
     const cleanNickname = sanitizeNickname(nickname);
     if (!cleanNickname) {
-      setNicknameError("Enter a nickname to start the local ranked demo.");
+      setNicknameError(t.play.nicknameError);
       return;
     }
 
@@ -185,45 +186,44 @@ export default function PlayPage() {
   }
 
   if (!profileLoaded) {
-    return <p className="py-10 text-sm text-arena-muted">Loading local arena...</p>;
+    return <p className="py-10 text-sm text-arena-muted">{t.play.loading}</p>;
   }
 
   if (!profile) {
     return (
       <div className="grid gap-5 py-4 lg:grid-cols-[1fr_420px] lg:items-center">
         <section>
-          <p className="text-sm font-medium text-arena-gold">Arena entry</p>
+          <p className="text-sm font-medium text-arena-gold">{t.play.entryEyebrow}</p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight">
-            Start ranked as a guest.
+            {t.play.entryTitle}
           </h1>
           <p className="mt-3 max-w-xl text-sm text-arena-muted">
-            Your first nickname opens the local loop: match result, rating
-            change, profile history, leaderboard row, and coach review.
+            {t.play.entryBody}
           </p>
           <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-xs text-arena-muted">Start rating</p>
+              <p className="text-xs text-arena-muted">{t.play.startRating}</p>
               <p className="mt-1 text-2xl font-semibold">1000</p>
             </div>
             <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-xs text-arena-muted">Opponent</p>
+              <p className="text-xs text-arena-muted">{t.play.opponent}</p>
               <p className="mt-1 font-semibold">Local Rival</p>
             </div>
             <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-xs text-arena-muted">Review</p>
-              <p className="mt-1 font-semibold">After finish</p>
+              <p className="text-xs text-arena-muted">{t.play.review}</p>
+              <p className="mt-1 font-semibold">{t.play.afterFinish}</p>
             </div>
           </div>
         </section>
         <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">Guest profile</p>
-          <h2 className="mt-2 text-2xl font-bold">Choose a nickname</h2>
+          <p className="text-sm font-medium text-arena-gold">{t.play.guestProfile}</p>
+          <h2 className="mt-2 text-2xl font-bold">{t.play.chooseNickname}</h2>
           <p className="mt-2 text-sm text-arena-muted">
-            Demo progress stays in this browser for the current MVP.
+            {t.play.localProgress}
           </p>
           <form onSubmit={startGuestProfile} className="mt-5 flex flex-col gap-3">
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-arena-muted">Nickname</span>
+              <span className="text-arena-muted">{t.play.nickname}</span>
               <input
                 value={nickname}
                 onChange={(event) => setNickname(event.target.value)}
@@ -235,7 +235,7 @@ export default function PlayPage() {
             </label>
             {nicknameError && <p className="text-sm text-arena-loss">{nicknameError}</p>}
             <button className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90">
-              Enter Arena
+              {t.play.enterArena}
             </button>
           </form>
         </section>
@@ -249,27 +249,26 @@ export default function PlayPage() {
         <div>
           <div className="flex flex-wrap gap-2 text-sm">
             <span className="rounded-full border border-arena-border bg-arena-panel px-3 py-1 text-arena-gold">
-              Local Ranked
+              {t.play.localRanked}
             </span>
             <span className="rounded-full border border-arena-border bg-arena-panel px-3 py-1 text-arena-muted">
-              Untimed hot-seat
+              {t.play.hotSeat}
             </span>
           </div>
           <h1 className="mt-3 text-3xl font-bold tracking-tight">
-            {profile.nickname} vs Local Rival
+            {profile.nickname} {t.common.vs} Local Rival
           </h1>
           <p className="mt-2 text-sm text-arena-muted">
-            Guest progress follows White through rating, review, and match
-            history.
+            {t.play.progressAsWhite}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:min-w-72">
           <div className="rounded-lg border border-arena-border bg-arena-panel px-4 py-3">
-            <p className="text-xs text-arena-muted">Your rating</p>
+            <p className="text-xs text-arena-muted">{t.play.yourRating}</p>
             <p className="mt-1 text-2xl font-semibold">{profile.rating}</p>
           </div>
           <div className="rounded-lg border border-arena-border bg-arena-panel px-4 py-3">
-            <p className="text-xs text-arena-muted">Level</p>
+            <p className="text-xs text-arena-muted">{t.play.level}</p>
             <p className="mt-1 text-2xl font-semibold">
               {getRatingLevel(profile.rating)}
             </p>
@@ -286,7 +285,7 @@ export default function PlayPage() {
               </span>
               <div>
                 <p className="font-semibold">Local Rival</p>
-                <p className="text-sm text-arena-muted">Black pieces</p>
+                <p className="text-sm text-arena-muted">{t.play.blackPieces}</p>
               </div>
             </div>
             <p className="text-sm text-arena-muted">{RIVAL_RATING}</p>
@@ -310,7 +309,7 @@ export default function PlayPage() {
               </span>
               <div>
                 <p className="font-semibold">{profile.nickname}</p>
-                <p className="text-sm text-arena-muted">White pieces</p>
+                <p className="text-sm text-arena-muted">{t.play.whitePieces}</p>
               </div>
             </div>
             <p className="text-sm text-arena-muted">{profile.rating}</p>
@@ -318,7 +317,7 @@ export default function PlayPage() {
 
           {promotion && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-arena-border bg-arena-panel px-3 py-2">
-              <span className="text-sm text-arena-muted">Promote to:</span>
+              <span className="text-sm text-arena-muted">{t.chess.promoteTo}</span>
               {(["q", "r", "b", "n"] as PromotionPiece[]).map((piece) => (
                 <button
                   key={piece}
@@ -336,7 +335,7 @@ export default function PlayPage() {
           <section className="rounded-lg border border-arena-border bg-arena-panel p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-arena-muted">Match status</p>
+                <p className="text-sm text-arena-muted">{t.play.matchStatus}</p>
                 <p
                   className={
                     status.state === "playing"
@@ -354,23 +353,23 @@ export default function PlayPage() {
                     : "rounded-full bg-arena-gold px-2.5 py-1 text-xs font-medium text-arena-bg"
                 }
               >
-                {status.state === "playing" ? "Live" : "Final"}
+                {status.state === "playing" ? t.match.live : t.match.final}
               </span>
             </div>
             <p className="mt-3 text-sm text-arena-muted">
               {status.state === "playing"
-                ? "Finish the board state to lock the local rating update."
-                : "The finished result feeds review, profile history, and leaderboard rank."}
+                ? t.play.playingHint
+                : t.play.finishedHint}
             </p>
           </section>
 
           {completedMatch && (
             <section className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-sm font-medium text-arena-gold">Result saved locally</p>
+              <p className="text-sm font-medium text-arena-gold">{t.play.savedResult}</p>
               <div className="mt-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                 <div>
                   <p className="text-2xl font-semibold">
-                    {formatResult(completedMatch.result)}{" "}
+                    {t.match.result[completedMatch.result]}{" "}
                     <span
                       className={
                         completedMatch.ratingDelta >= 0
@@ -383,14 +382,14 @@ export default function PlayPage() {
                     </span>
                   </p>
                   <p className="mt-1 text-sm text-arena-muted">
-                    {completedMatch.ratingBefore} to {completedMatch.ratingAfter}
+                    {completedMatch.ratingBefore} {t.common.to} {completedMatch.ratingAfter}
                   </p>
                 </div>
                 <Link
                   href={`/review/${completedMatch.id}`}
                   className="rounded-md bg-arena-gold px-4 py-2 text-center font-medium text-arena-bg hover:opacity-90"
                 >
-                  Open review
+                  {t.common.openReview}
                 </Link>
               </div>
             </section>
@@ -405,14 +404,14 @@ export default function PlayPage() {
                 disabled={gameOver}
                 className="flex-1 rounded-md border border-arena-border bg-arena-elevated px-3 py-2 text-sm font-medium hover:border-arena-loss hover:text-arena-loss disabled:opacity-40"
               >
-                Resign
+                {t.play.resign}
               </button>
               <button
                 onClick={reset}
                 disabled={gameOver && !completedMatch}
                 className="flex-1 rounded-md bg-arena-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
               >
-                New Game
+                {t.play.newGame}
               </button>
             </div>
             {completedMatch && (
@@ -421,13 +420,13 @@ export default function PlayPage() {
                   href="/profile"
                   className="rounded-md border border-arena-border px-3 py-1.5 font-medium hover:border-arena-gold"
                 >
-                  Profile
+                  {t.common.profile}
                 </Link>
                 <Link
                   href="/leaderboard"
                   className="rounded-md border border-arena-border px-3 py-1.5 font-medium hover:border-arena-gold"
                 >
-                  Leaderboard
+                  {t.common.leaderboard}
                 </Link>
               </div>
             )}

@@ -1,10 +1,14 @@
+"use client";
+
 import type { Move } from "chess.js";
+import { usePreferences } from "@/components/settings/PreferencesProvider";
 
 type MoveListProps = {
   moves: Move[];
 };
 
 export default function MoveList({ moves }: MoveListProps) {
+  const { t } = usePreferences();
   const rows: { number: number; white?: string; black?: string }[] = [];
   moves.forEach((move, i) => {
     const row = Math.floor(i / 2);
@@ -18,16 +22,14 @@ export default function MoveList({ moves }: MoveListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-arena-border bg-arena-panel">
       <div className="flex items-center justify-between gap-2 border-b border-arena-border px-3 py-2 text-sm">
-        <p className="font-medium">Move list</p>
+        <p className="font-medium">{t.chess.moveList}</p>
         <p className="text-xs text-arena-muted">
-          {moves.length === 0 ? "Opening board" : `${moves.length} ply recorded`}
+          {moves.length === 0 ? t.chess.openingBoard : t.chess.plyRecorded(moves.length)}
         </p>
       </div>
       <div className="max-h-64 overflow-y-auto px-3 py-2">
         {rows.length === 0 ? (
-          <p className="text-sm text-arena-muted">
-            No moves yet. The first sequence will build the review trace.
-          </p>
+          <p className="text-sm text-arena-muted">{t.chess.noMoves}</p>
         ) : (
           <ol className="text-sm">
             {rows.map((row) => (
