@@ -397,5 +397,29 @@ QA + точечный hardening без нового этапа.
   guest-строкой как раньше.
 - При большом числе аккаунтов (>= 5) demo-игроки не должны подмешиваться.
 
+## Post-3.4 bugfix — leaderboard без авторизации. Статус: завершён (2026-05-21)
+
+### Причина бага
+`app/leaderboard/page.tsx` вызывал `loadAccountLeaderboard` только внутри
+`if (user)`, то есть только при активной сессии. После sign out `user = null`,
+код пропускал Supabase и сразу падал в demo fallback. Но `profiles` имеет
+`select using (true)` — публичное чтение без авторизации.
+
+### Фикс
+Убрана обёртка `if (user)`. `loadAccountLeaderboard` теперь вызывается всегда,
+когда Supabase env настроен; текущий `user?.id ?? null` передаётся для маркировки
+строки `isYou`. Если запрос упал — fallback на demo/local как раньше.
+
+### Файлы
+- `app/leaderboard/page.tsx` — строки 33–49, убрана `if (user)` обёртка.
+
+### Проверить вручную
+- Залогиниться → `/leaderboard`: глобальный список, строка «You» подсвечена.
+- Sign out → `/leaderboard`: тот же глобальный список Supabase, без «You».
+- Без `.env.local` (Supabase не настроен) → demo/local board как раньше.
+
+### Команды
+- `npm run build` — OK. `git diff --check` — OK (только LF → CRLF warning).
+
 ## Следующий этап
 Stage 3.5+ — пока не определён. Realtime и multiplayer rooms не начинались.

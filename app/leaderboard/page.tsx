@@ -35,16 +35,14 @@ export default function LeaderboardPage() {
           data: { user },
         } = await supabase.auth.getUser();
 
-        if (user) {
-          const result = await loadAccountLeaderboard(supabase, user.id);
-          if (!active) return;
+        const result = await loadAccountLeaderboard(supabase, user?.id ?? null);
+        if (!active) return;
 
-          if (!result.error) {
-            setIsAccount(true);
-            setRows(result.rows);
-            setLoaded(true);
-            return;
-          }
+        if (!result.error) {
+          setIsAccount(true);
+          setRows(result.rows);
+          setLoaded(true);
+          return;
         }
       }
 
