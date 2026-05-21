@@ -50,19 +50,33 @@ export default function ReviewPage() {
   }
 
   const review = buildDemoCoachReview(match);
+  const lastSequence = match.sanMoves.slice(-6);
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-        <p className="text-sm font-medium text-arena-gold">Demo heuristic AI Coach</p>
-        <div className="mt-2 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <h1 className="text-3xl font-bold">{review.headline}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-arena-muted">{review.summary}</p>
+      <section className="grid gap-4 lg:grid-cols-[1fr_280px]">
+        <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="rounded-full border border-arena-border bg-arena-elevated px-3 py-1 text-arena-gold">
+              Match Review
+            </span>
+            <span className="rounded-full border border-arena-border bg-arena-elevated px-3 py-1 text-arena-muted">
+              Demo heuristic coach
+            </span>
           </div>
-          <div className="rounded-md bg-arena-elevated px-4 py-3 text-sm">
+          <div>
+            <h1 className="mt-4 text-4xl font-bold tracking-tight">
+              {review.headline}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm text-arena-muted">
+              {review.summary}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col justify-between rounded-lg border border-arena-border bg-arena-panel p-5">
+          <div>
             <p className="text-arena-muted">Result</p>
-            <p className="mt-1 text-lg font-semibold">
+            <p className="mt-2 text-3xl font-semibold">
               {formatResult(match.result)}{" "}
               <span
                 className={match.ratingDelta >= 0 ? "text-arena-win" : "text-arena-loss"}
@@ -71,6 +85,23 @@ export default function ReviewPage() {
                 {match.ratingDelta}
               </span>
             </p>
+            <p className="mt-2 text-sm text-arena-muted">
+              vs {match.opponentNickname}
+            </p>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link
+              href="/play"
+              className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
+            >
+              Play again
+            </Link>
+            <Link
+              href="/profile"
+              className="rounded-md border border-arena-border px-4 py-2 font-medium hover:border-arena-gold"
+            >
+              Profile
+            </Link>
           </div>
         </div>
       </section>
@@ -93,10 +124,21 @@ export default function ReviewPage() {
       </section>
 
       <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-        <h2 className="font-semibold">Coach notes</h2>
-        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-arena-gold">Coach notes</p>
+            <h2 className="mt-1 text-2xl font-semibold">Three review signals</h2>
+          </div>
+          <p className="text-sm text-arena-muted">
+            Built from result and SAN-history only
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {review.insights.map((insight) => (
-            <article key={insight.title} className="rounded-md bg-arena-elevated p-4">
+            <article
+              key={insight.title}
+              className="rounded-md border border-arena-border bg-arena-elevated p-4"
+            >
               <h3 className="font-medium">{insight.title}</h3>
               <p className="mt-2 text-sm text-arena-muted">{insight.body}</p>
             </article>
@@ -104,26 +146,35 @@ export default function ReviewPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-        <p className="text-sm font-medium text-arena-gold">Train next</p>
-        <p className="mt-2 text-sm">{review.trainingAdvice}</p>
-        <p className="mt-2 text-xs text-arena-muted">
-          This Stage 2 coach uses result and SAN-history heuristics only. No
-          engine evaluation or API analysis runs here.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/play"
-            className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
-          >
-            Play again
-          </Link>
-          <Link
-            href="/profile"
-            className="rounded-md border border-arena-border px-4 py-2 font-medium hover:border-arena-gold"
-          >
-            Profile
-          </Link>
+      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="text-sm font-medium text-arena-gold">Move trace</p>
+          <h2 className="mt-2 text-2xl font-semibold">Last sequence</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {lastSequence.length === 0 ? (
+              <p className="text-sm text-arena-muted">
+                No SAN moves were recorded for this finish.
+              </p>
+            ) : (
+              lastSequence.map((move, index) => (
+                <span
+                  key={`${move}-${index}`}
+                  className="rounded-md bg-arena-elevated px-3 py-1.5 font-mono text-sm"
+                >
+                  {move}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="text-sm font-medium text-arena-gold">Train next</p>
+          <h2 className="mt-2 text-2xl font-semibold">One next habit</h2>
+          <p className="mt-3 text-sm">{review.trainingAdvice}</p>
+          <p className="mt-3 text-xs text-arena-muted">
+            No engine evaluation or API analysis runs in this local MVP review.
+          </p>
         </div>
       </section>
     </div>

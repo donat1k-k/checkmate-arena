@@ -11,6 +11,7 @@
   --color-arena-gold: #d4af37;
   --color-arena-win: #3fb950;
   --color-arena-loss: #f85149;
+  --color-arena-focus: #7dd3fc;
 }
 
 html,
@@ -20,5 +21,29 @@ body {
 }
 
 body {
+  background-image:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.14), transparent 24rem),
+    linear-gradient(90deg, rgba(212, 175, 55, 0.05), transparent 38rem);
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: rgba(59, 130, 246, 0.42);
+  color: var(--color-arena-text);
+}
+
+button,
+input,
+a {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-arena-focus);
+  outline-offset: 2px;
 }

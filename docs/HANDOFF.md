@@ -60,6 +60,46 @@ Browser preview заблокировал локальный URL (`localhost` и 
 in-app browser, поэтому интерактивный click-through оставлен в ручных шагах
 выше. Production build при этом прошёл.
 
+## Этап 2.5 — Product Polish / Demo-ready. Статус: завершён (2026-05-21)
+
+### Сделано
+- Общий shell стал demo-ready: брендированный sticky nav, ссылка на Pro,
+  footer loop, более выразительные глобальные focus/background states.
+- Home теперь показывает продуктовую петлю через arena hero с реальным
+  chessboard preview, CTA в Play/Leaderboard и быстрые сигналы про guest,
+  rating и coach.
+- `/play` переработан в матчевый экран без изменения chess engine:
+  player rails, rating/level header, match status, усиленный result block,
+  переходы в Review/Profile/Leaderboard и более читаемый move list.
+- `/profile` усилен identity/progress слоем: avatar initials, peak/current
+  rating, badges/status, latest match signal и более заметная history.
+- `/review/[matchId]` подан как короткий coach report: result panel, review
+  signals, SAN last-sequence trace и train-next block без engine/API метрик.
+- `/leaderboard` получил top-3 competitive section и сохранённую таблицу с
+  подсветкой guest row.
+- Добавлен статический `/pro` monetization concept с честной границей:
+  checkout/auth/backend entitlements не реализованы.
+- `lib/chess/engine.ts` и `lib/demo/progress.ts` в этом этапе не менялись.
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK, только предупреждения Git о будущем LF → CRLF для
+  изменённых UI-файлов.
+- `npm run dev -- --port 3000` — поднят локальный dev server для visual QA.
+- In-app browser click-through: Home, guest entry, Play, Resign → Result →
+  Review, Profile, Leaderboard, Pro; проверены desktop и mobile-size views.
+
+### Что проверить вручную
+- Пройти happy path с новым nickname: `/` → `/play` → завершить матч →
+  открыть Review → вернуться в Profile → открыть Leaderboard.
+- На `/play` проверить обычные click/drag moves, promotion flow, Resign и
+  New Game после завершения результата.
+- На `/profile` проверить empty state в чистом браузере и history после
+  нескольких сохранённых матчей.
+- Проверить `/pro`, что кнопка checkout остаётся честно disabled/coming soon.
+- Проверить nav, hero, match screen, review cards и leaderboard table на
+  узком mobile viewport.
+
 ## Следующий этап — после отдельного подтверждения
 - Перенести локальные profile / matches / reviews в Supabase persistence.
 - Согласовать Auth и границу между guest progress и аккаунтом.
