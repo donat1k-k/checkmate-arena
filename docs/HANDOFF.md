@@ -976,3 +976,45 @@ create policy reviews_update_participant
 - **QA-проход** — полный функциональный тест всех экранов после функционального блока
 - **Full UX redesign** — отдельный этап (не разрабатывалось в 5.1/5.2 согласно ограничениям)
 - **finish_reason** — колонка в `matches` для корректного label ничьих в review
+
+## Этап 5.3 — Review Workspace UX restructure. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. `components/chess/ReplayBoard.tsx`** — убран внутренний `lg:grid lg:grid-cols-2`:
+- Компонент теперь всегда рендерится вертикально (`flex flex-col gap-3`): доска → навигация → movelist.
+- Это позволяет вписать ReplayBoard в левую колонку workspace без переполнения.
+
+**2. `app/review/[matchId]/page.tsx`** — workspace 2-col layout:
+- После stats-карточек добавлена секция `grid gap-5 lg:grid-cols-2`.
+- **Левая колонка**: Replay section + Ask AI section (доска и вопросы рядом).
+- **Правая колонка**: AI Coach summary + Key moments + Training from mistakes.
+- **Внизу** (full width): Coach signals / demo notes + Last sequence + Training habit.
+- На mobile все колонки стекаются вертикально в правильном порядке (Replay → Ask AI → AI summary → Key moments → Training).
+- Захардкоженные EN-строки для AI-ошибок в `TrainingMomentCard` заменены на `ta.notConfigured` / `ta.error` через новый prop `ta: AskMoveStrings`.
+
+### Supabase schema
+Не менялась.
+
+### Команды и проверки
+- `npm run build` — OK (14 routes, TypeScript OK).
+- `git diff --check` — OK (только LF→CRLF warnings, стандарт для репо).
+- Browser tool недоступен для localhost — см. ручной чеклист ниже.
+
+### Что проверить вручную
+1. **Desktop (≥1024px)**: левая колонка — доска + Ask AI; правая — AI Coach + Key moments + Training.
+2. **Mobile (375px)**: вертикальный стек — Replay → Ask AI → AI summary → Key moments → Training → Coach notes.
+3. Key moment "Перейти к ходу" → доска прыгает → chip в Ask AI показывает новый ход.
+4. Training "Разобрать позицию" → доска прыгает → textarea в Training активна.
+5. AI Coach "Generate" → 4 карточки появляются в правой колонке рядом с Key moments.
+6. Guest review работает: нет saved badge, guestNote виден.
+7. Account review: persistence, saved badge после генерации.
+8. RU/EN переключение — все строки корректны, включая ошибки в Training AI блоке.
+
+### Архитектурное решение
+Review workspace теперь — структурированный 2-col layout. Полный визуальный redesign (цвета, типографика, брендинг) остаётся отдельным будущим этапом.
+
+### Следующий логичный этап
+- **QA-проход** — полный функциональный тест после завершения структурного блока
+- **Full visual redesign** — отдельный этап
+- **finish_reason** — колонка в `matches` для корректного label ничьих

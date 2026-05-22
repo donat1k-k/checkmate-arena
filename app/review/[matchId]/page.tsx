@@ -91,6 +91,7 @@ function finishLabel(
 
 type TimelineStrings = AppTranslations["review"]["timeline"];
 type TrainingStrings = AppTranslations["review"]["training"];
+type AskMoveStrings = AppTranslations["review"]["askMove"];
 
 type TrainingMomentState = {
   userAnswer: string;
@@ -165,6 +166,7 @@ function TrainingMomentCard({
   state,
   tr,
   tl,
+  ta,
   onGoToMove,
   onAnswerChange,
   onReveal,
@@ -174,6 +176,7 @@ function TrainingMomentCard({
   state: TrainingMomentState;
   tr: TrainingStrings;
   tl: TimelineStrings;
+  ta: AskMoveStrings;
   onGoToMove: () => void;
   onAnswerChange: (v: string) => void;
   onReveal: () => void;
@@ -257,8 +260,8 @@ function TrainingMomentCard({
       {state.aiError && (
         <p className="mt-2 text-xs text-arena-muted">
           {state.aiError === "not_configured"
-            ? "AI Coach not configured."
-            : "AI unavailable right now."}
+            ? ta.notConfigured
+            : ta.error}
         </p>
       )}
 
@@ -632,282 +635,380 @@ export default function ReviewPage() {
         </div>
       </section>
 
-      {match.sanMoves.length > 0 && (
-        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="mb-4 text-sm font-medium text-arena-gold">
-            {t.review.replay.eyebrow}
-          </p>
-          <ReplayBoard
-            sanMoves={match.sanMoves}
-            playerColor={match.playerColor}
-            keyMovePly={aiCoach?.keyMovePly}
-            keyMoveSan={aiCoach?.keyMoveSan}
-            keyMoveComment={aiCoach?.keyMoveComment}
-            jumpToPly={jumpToPly}
-            onJumpApplied={() => setJumpToPly(undefined)}
-            onPlyChange={(ply, san, fen) => {
-              setSelectedPly(ply);
-              setSelectedSan(san);
-              setSelectedFen(fen);
-            }}
-          />
-        </section>
-      )}
+      {/* Workspace: 2-col on lg — left: board+askAI, right: AI coach+timeline+training */}
+      <div className="grid gap-5 lg:grid-cols-2">
 
-      {match.sanMoves.length > 0 && (
-        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">
-            {t.review.timeline.eyebrow}
-          </p>
-          {!aiCoach?.keyMoments?.length ? (
-            <p className="mt-3 text-sm text-arena-muted">
-              {t.review.timeline.noKeyMoments}
-            </p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-3">
-              {aiCoach.keyMoments.map((moment, idx) => (
-                <KeyMomentCard
-                  key={idx}
-                  moment={moment}
-                  tl={t.review.timeline}
-                  onGoToMove={() => setJumpToPly(moment.ply)}
-                />
-              ))}
-            </div>
+        {/* LEFT column: Replay board + Ask AI */}
+        <div className="flex flex-col gap-5">
+          {match.sanMoves.length > 0 && (
+            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+              <p className="mb-4 text-sm font-medium text-arena-gold">
+                {t.review.replay.eyebrow}
+              </p>
+              <ReplayBoard
+                sanMoves={match.sanMoves}
+                playerColor={match.playerColor}
+                keyMovePly={aiCoach?.keyMovePly}
+                keyMoveSan={aiCoach?.keyMoveSan}
+                keyMoveComment={aiCoach?.keyMoveComment}
+                jumpToPly={jumpToPly}
+                onJumpApplied={() => setJumpToPly(undefined)}
+                onPlyChange={(ply, san, fen) => {
+                  setSelectedPly(ply);
+                  setSelectedSan(san);
+                  setSelectedFen(fen);
+                }}
+              />
+            </section>
           )}
-        </section>
-      )}
 
-      {match.sanMoves.length > 0 && (
-        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">
-            {t.review.training.eyebrow}
-          </p>
-          {(() => {
-            const trainingMoments = aiCoach?.keyMoments?.filter((m) =>
-              ["mistake", "critical", "inaccuracy", "turning_point"].includes(m.type),
-            ) ?? [];
-            if (trainingMoments.length === 0) {
-              return (
+          {match.sanMoves.length > 0 && (
+            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+              <p className="text-sm font-medium text-arena-gold">
+                {t.review.askMove.eyebrow}
+              </p>
+
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-xs text-arena-muted">
+                  {t.review.askMove.selectedMove}:
+                </span>
+                {selectedSan ? (
+                  <span className="rounded bg-arena-elevated px-2 py-0.5 font-mono text-sm font-medium">
+                    {selectedPly}. {selectedSan}
+                  </span>
+                ) : (
+                  <span className="text-xs text-arena-muted">
+                    {t.review.askMove.noMoveSelected}
+                  </span>
+                )}
+              </div>
+
+              {selectedSan && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {t.review.askMove.quickQuestions.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setMoveQuestion(q)}
+                      className="rounded-full border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-col gap-2">
+                <textarea
+                  value={moveQuestion}
+                  onChange={(e) => setMoveQuestion(e.target.value.slice(0, 500))}
+                  placeholder={t.review.askMove.questionPlaceholder}
+                  disabled={!selectedSan || moveQLoading}
+                  rows={2}
+                  className="w-full resize-none rounded-md border border-arena-border bg-arena-elevated px-3 py-2 text-sm placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-arena-muted">
+                    {moveQuestion.length}/500
+                  </span>
+                  <button
+                    onClick={() => void handleAskMoveQuestion(match)}
+                    disabled={!selectedSan || !moveQuestion.trim() || moveQLoading}
+                    className="rounded-md bg-arena-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {moveQLoading
+                      ? t.review.askMove.askingBtn
+                      : t.review.askMove.askBtn}
+                  </button>
+                </div>
+              </div>
+
+              {moveQError === "not_configured" && (
                 <p className="mt-3 text-sm text-arena-muted">
-                  {t.review.training.noTrainingMoments}
+                  {t.review.askMove.notConfigured}
                 </p>
-              );
-            }
-            return (
-              <div className="mt-4 flex flex-col gap-5">
-                {trainingMoments.map((moment, idx) => {
-                  const state: TrainingMomentState = trainingState[moment.ply] ?? {
-                    userAnswer: "",
-                    revealed: false,
-                    aiResult: null,
-                    aiLoading: false,
-                    aiError: null,
-                  };
-                  const patchState = (patch: Partial<TrainingMomentState>) =>
-                    setTrainingState((prev) => ({
-                      ...prev,
-                      [moment.ply]: { ...state, ...patch },
-                    }));
-                  return (
-                    <TrainingMomentCard
+              )}
+              {moveQError === "empty_question" && (
+                <p className="mt-3 text-sm text-arena-muted">
+                  {t.review.askMove.emptyQuestion}
+                </p>
+              )}
+              {moveQError === "question_too_long" && (
+                <p className="mt-3 text-sm text-arena-muted">
+                  {t.review.askMove.questionTooLong}
+                </p>
+              )}
+              {moveQError &&
+                moveQError !== "not_configured" &&
+                moveQError !== "empty_question" &&
+                moveQError !== "question_too_long" && (
+                  <p className="mt-3 text-sm text-arena-muted">
+                    {t.review.askMove.error}
+                  </p>
+                )}
+
+              {moveQResult && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                    <p className="text-xs text-arena-muted">
+                      {t.review.askMove.answer}
+                    </p>
+                    <p className="mt-1 text-sm">{moveQResult.answer}</p>
+                  </div>
+                  <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                    <p className="text-xs text-arena-muted">
+                      {t.review.askMove.betterPlan}
+                    </p>
+                    <p className="mt-1 font-mono text-sm">
+                      {moveQResult.betterPlan}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                    <p className="text-xs text-arena-muted">
+                      {t.review.askMove.trainingTip}
+                    </p>
+                    <p className="mt-1 text-sm">{moveQResult.trainingTip}</p>
+                  </div>
+                </div>
+              )}
+
+              {moveQHistory.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-medium text-arena-muted">
+                    {t.review.askMove.history}
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    {moveQHistory.map((item, index) => (
+                      <div
+                        key={index}
+                        className="rounded-md border border-arena-border bg-arena-elevated p-3"
+                      >
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          {item.san && (
+                            <span className="rounded bg-arena-panel px-1.5 py-0.5 font-mono text-xs">
+                              {item.ply}. {item.san}
+                            </span>
+                          )}
+                          <span className="text-xs text-arena-muted italic">
+                            {item.question}
+                          </span>
+                        </div>
+                        <p className="text-sm">{item.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+
+        {/* RIGHT column: AI Coach summary + Key moments + Training */}
+        <div className="flex flex-col gap-5">
+          <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-arena-gold">
+                  {t.review.aiCoach.eyebrow}
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  {t.review.aiCoach.title}
+                </h2>
+              </div>
+              {!aiCoachLoading && (
+                <button
+                  onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
+                  className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
+                >
+                  {aiCoach ? t.review.aiCoach.regenerateBtn : t.review.aiCoach.generateBtn}
+                </button>
+              )}
+            </div>
+
+            {aiCoachLoading && (
+              <p className="mt-4 text-sm text-arena-muted animate-pulse">
+                {t.review.aiCoach.generating}
+              </p>
+            )}
+
+            {aiCoachError === "not_configured" && (
+              <p className="mt-4 text-sm text-arena-muted">
+                {t.review.aiCoach.notConfigured}
+              </p>
+            )}
+
+            {aiCoachError === "unavailable" && (
+              <p className="mt-4 text-sm text-arena-muted">
+                {t.review.aiCoach.error}
+              </p>
+            )}
+
+            {aiCoach && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                  <p className="text-xs text-arena-muted">{t.review.aiCoach.mainMistake}</p>
+                  <p className="mt-1 text-sm">{aiCoach.mainMistake}</p>
+                </div>
+                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                  <p className="text-xs text-arena-muted">{t.review.aiCoach.bestAlternative}</p>
+                  <p className="mt-1 text-sm font-mono">{aiCoach.bestAlternative}</p>
+                </div>
+                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                  <p className="text-xs text-arena-muted">{t.review.aiCoach.whyImportant}</p>
+                  <p className="mt-1 text-sm">{aiCoach.whyImportant}</p>
+                </div>
+                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                  <p className="text-xs text-arena-muted">{t.review.aiCoach.trainNext}</p>
+                  <p className="mt-1 text-sm">{aiCoach.trainNext}</p>
+                </div>
+                <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-arena-muted">
+                    {t.review.aiCoach.note}
+                  </p>
+                  {isAccount && aiCoachSaved && (
+                    <span className="rounded-full border border-arena-win/40 bg-arena-win/10 px-3 py-0.5 text-xs text-arena-win">
+                      {t.review.aiCoach.saved}
+                    </span>
+                  )}
+                  {!isAccount && (
+                    <p className="text-xs text-arena-muted">
+                      {t.review.aiCoach.guestNote}
+                    </p>
+                  )}
+                </div>
+                {aiCoachSaveError && (
+                  <p className="sm:col-span-2 text-xs text-arena-muted">
+                    {t.review.aiCoach.saveError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!aiCoach && !aiCoachLoading && !aiCoachError && (
+              <p className="mt-3 text-sm text-arena-muted">
+                {isAccount ? t.review.accountBoundary : t.review.boundary}
+              </p>
+            )}
+          </section>
+
+          {match.sanMoves.length > 0 && (
+            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+              <p className="text-sm font-medium text-arena-gold">
+                {t.review.timeline.eyebrow}
+              </p>
+              {!aiCoach?.keyMoments?.length ? (
+                <p className="mt-3 text-sm text-arena-muted">
+                  {t.review.timeline.noKeyMoments}
+                </p>
+              ) : (
+                <div className="mt-4 flex flex-col gap-3">
+                  {aiCoach.keyMoments.map((moment, idx) => (
+                    <KeyMomentCard
                       key={idx}
                       moment={moment}
-                      state={state}
-                      tr={t.review.training}
                       tl={t.review.timeline}
                       onGoToMove={() => setJumpToPly(moment.ply)}
-                      onAnswerChange={(v) => patchState({ userAnswer: v })}
-                      onReveal={() => patchState({ revealed: true })}
-                      onAskAi={async () => {
-                        const q = state.userAnswer.trim();
-                        if (!q) return;
-                        patchState({ aiLoading: true, aiError: null, aiResult: null });
-                        try {
-                          const fen = replayPositions[moment.ply] ?? replayPositions[replayPositions.length - 1] ?? "";
-                          const res = await fetch("/api/coach/move", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              locale,
-                              sanMoves: match.sanMoves,
-                              selectedPly: moment.ply,
-                              selectedSan: moment.san ?? null,
-                              selectedFen: fen,
-                              existingAnalysis: aiCoach
-                                ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
-                                : null,
-                              question: q,
-                              result: match.result,
-                              playerColor: match.playerColor,
-                              moveCount: match.moveCount,
-                            }),
-                          });
-                          const data = (await res.json()) as MoveQuestionResponse;
-                          if (data.available) {
-                            patchState({
-                              aiResult: {
-                                answer: data.answer,
-                                betterPlan: data.betterPlan,
-                                trainingTip: data.trainingTip,
-                              },
-                              aiLoading: false,
-                            });
-                          } else {
-                            patchState({ aiError: data.reason, aiLoading: false });
-                          }
-                        } catch {
-                          patchState({ aiError: "unavailable", aiLoading: false });
-                        }
-                      }}
                     />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {match.sanMoves.length > 0 && (
+            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+              <p className="text-sm font-medium text-arena-gold">
+                {t.review.training.eyebrow}
+              </p>
+              {(() => {
+                const trainingMoments = aiCoach?.keyMoments?.filter((m) =>
+                  ["mistake", "critical", "inaccuracy", "turning_point"].includes(m.type),
+                ) ?? [];
+                if (trainingMoments.length === 0) {
+                  return (
+                    <p className="mt-3 text-sm text-arena-muted">
+                      {t.review.training.noTrainingMoments}
+                    </p>
                   );
-                })}
-              </div>
-            );
-          })()}
-        </section>
-      )}
-
-      {match.sanMoves.length > 0 && (
-        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">
-            {t.review.askMove.eyebrow}
-          </p>
-
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs text-arena-muted">
-              {t.review.askMove.selectedMove}:
-            </span>
-            {selectedSan ? (
-              <span className="rounded bg-arena-elevated px-2 py-0.5 font-mono text-sm font-medium">
-                {selectedPly}. {selectedSan}
-              </span>
-            ) : (
-              <span className="text-xs text-arena-muted">
-                {t.review.askMove.noMoveSelected}
-              </span>
-            )}
-          </div>
-
-          {selectedSan && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {t.review.askMove.quickQuestions.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => setMoveQuestion(q)}
-                  className="rounded-full border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-col gap-2">
-            <textarea
-              value={moveQuestion}
-              onChange={(e) => setMoveQuestion(e.target.value.slice(0, 500))}
-              placeholder={t.review.askMove.questionPlaceholder}
-              disabled={!selectedSan || moveQLoading}
-              rows={2}
-              className="w-full resize-none rounded-md border border-arena-border bg-arena-elevated px-3 py-2 text-sm placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-arena-muted">
-                {moveQuestion.length}/500
-              </span>
-              <button
-                onClick={() => void handleAskMoveQuestion(match)}
-                disabled={!selectedSan || !moveQuestion.trim() || moveQLoading}
-                className="rounded-md bg-arena-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {moveQLoading
-                  ? t.review.askMove.askingBtn
-                  : t.review.askMove.askBtn}
-              </button>
-            </div>
-          </div>
-
-          {moveQError === "not_configured" && (
-            <p className="mt-3 text-sm text-arena-muted">
-              {t.review.askMove.notConfigured}
-            </p>
-          )}
-          {moveQError === "empty_question" && (
-            <p className="mt-3 text-sm text-arena-muted">
-              {t.review.askMove.emptyQuestion}
-            </p>
-          )}
-          {moveQError === "question_too_long" && (
-            <p className="mt-3 text-sm text-arena-muted">
-              {t.review.askMove.questionTooLong}
-            </p>
-          )}
-          {moveQError &&
-            moveQError !== "not_configured" &&
-            moveQError !== "empty_question" &&
-            moveQError !== "question_too_long" && (
-              <p className="mt-3 text-sm text-arena-muted">
-                {t.review.askMove.error}
-              </p>
-            )}
-
-          {moveQResult && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                <p className="text-xs text-arena-muted">
-                  {t.review.askMove.answer}
-                </p>
-                <p className="mt-1 text-sm">{moveQResult.answer}</p>
-              </div>
-              <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                <p className="text-xs text-arena-muted">
-                  {t.review.askMove.betterPlan}
-                </p>
-                <p className="mt-1 font-mono text-sm">
-                  {moveQResult.betterPlan}
-                </p>
-              </div>
-              <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                <p className="text-xs text-arena-muted">
-                  {t.review.askMove.trainingTip}
-                </p>
-                <p className="mt-1 text-sm">{moveQResult.trainingTip}</p>
-              </div>
-            </div>
-          )}
-
-          {moveQHistory.length > 0 && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-medium text-arena-muted">
-                {t.review.askMove.history}
-              </p>
-              <div className="flex flex-col gap-3">
-                {moveQHistory.map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-md border border-arena-border bg-arena-elevated p-3"
-                  >
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      {item.san && (
-                        <span className="rounded bg-arena-panel px-1.5 py-0.5 font-mono text-xs">
-                          {item.ply}. {item.san}
-                        </span>
-                      )}
-                      <span className="text-xs text-arena-muted italic">
-                        {item.question}
-                      </span>
-                    </div>
-                    <p className="text-sm">{item.answer}</p>
+                }
+                return (
+                  <div className="mt-4 flex flex-col gap-5">
+                    {trainingMoments.map((moment, idx) => {
+                      const state: TrainingMomentState = trainingState[moment.ply] ?? {
+                        userAnswer: "",
+                        revealed: false,
+                        aiResult: null,
+                        aiLoading: false,
+                        aiError: null,
+                      };
+                      const patchState = (patch: Partial<TrainingMomentState>) =>
+                        setTrainingState((prev) => ({
+                          ...prev,
+                          [moment.ply]: { ...state, ...patch },
+                        }));
+                      return (
+                        <TrainingMomentCard
+                          key={idx}
+                          moment={moment}
+                          state={state}
+                          tr={t.review.training}
+                          tl={t.review.timeline}
+                          ta={t.review.askMove}
+                          onGoToMove={() => setJumpToPly(moment.ply)}
+                          onAnswerChange={(v) => patchState({ userAnswer: v })}
+                          onReveal={() => patchState({ revealed: true })}
+                          onAskAi={async () => {
+                            const q = state.userAnswer.trim();
+                            if (!q) return;
+                            patchState({ aiLoading: true, aiError: null, aiResult: null });
+                            try {
+                              const fen = replayPositions[moment.ply] ?? replayPositions[replayPositions.length - 1] ?? "";
+                              const res = await fetch("/api/coach/move", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  locale,
+                                  sanMoves: match.sanMoves,
+                                  selectedPly: moment.ply,
+                                  selectedSan: moment.san ?? null,
+                                  selectedFen: fen,
+                                  existingAnalysis: aiCoach
+                                    ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
+                                    : null,
+                                  question: q,
+                                  result: match.result,
+                                  playerColor: match.playerColor,
+                                  moveCount: match.moveCount,
+                                }),
+                              });
+                              const data = (await res.json()) as MoveQuestionResponse;
+                              if (data.available) {
+                                patchState({
+                                  aiResult: {
+                                    answer: data.answer,
+                                    betterPlan: data.betterPlan,
+                                    trainingTip: data.trainingTip,
+                                  },
+                                  aiLoading: false,
+                                });
+                              } else {
+                                patchState({ aiError: data.reason, aiLoading: false });
+                              }
+                            } catch {
+                              patchState({ aiError: "unavailable", aiLoading: false });
+                            }
+                          }}
+                        />
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            </div>
+                );
+              })()}
+            </section>
           )}
-        </section>
-      )}
+        </div>
+      </div>
 
+      {/* Reference section: demo coach signals + last sequence + habit */}
       <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -961,92 +1062,6 @@ export default function ReviewPage() {
             {isAccount ? t.review.accountBoundary : t.review.boundary}
           </p>
         </div>
-      </section>
-
-      <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-arena-gold">
-              {t.review.aiCoach.eyebrow}
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold">
-              {t.review.aiCoach.title}
-            </h2>
-          </div>
-          {!aiCoachLoading && (
-            <button
-              onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
-              className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
-            >
-              {aiCoach ? t.review.aiCoach.regenerateBtn : t.review.aiCoach.generateBtn}
-            </button>
-          )}
-        </div>
-
-        {aiCoachLoading && (
-          <p className="mt-4 text-sm text-arena-muted animate-pulse">
-            {t.review.aiCoach.generating}
-          </p>
-        )}
-
-        {aiCoachError === "not_configured" && (
-          <p className="mt-4 text-sm text-arena-muted">
-            {t.review.aiCoach.notConfigured}
-          </p>
-        )}
-
-        {aiCoachError === "unavailable" && (
-          <p className="mt-4 text-sm text-arena-muted">
-            {t.review.aiCoach.error}
-          </p>
-        )}
-
-        {aiCoach && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-              <p className="text-xs text-arena-muted">{t.review.aiCoach.mainMistake}</p>
-              <p className="mt-1 text-sm">{aiCoach.mainMistake}</p>
-            </div>
-            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-              <p className="text-xs text-arena-muted">{t.review.aiCoach.bestAlternative}</p>
-              <p className="mt-1 text-sm font-mono">{aiCoach.bestAlternative}</p>
-            </div>
-            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-              <p className="text-xs text-arena-muted">{t.review.aiCoach.whyImportant}</p>
-              <p className="mt-1 text-sm">{aiCoach.whyImportant}</p>
-            </div>
-            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-              <p className="text-xs text-arena-muted">{t.review.aiCoach.trainNext}</p>
-              <p className="mt-1 text-sm">{aiCoach.trainNext}</p>
-            </div>
-            <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-arena-muted">
-                {t.review.aiCoach.note}
-              </p>
-              {isAccount && aiCoachSaved && (
-                <span className="rounded-full border border-arena-win/40 bg-arena-win/10 px-3 py-0.5 text-xs text-arena-win">
-                  {t.review.aiCoach.saved}
-                </span>
-              )}
-              {!isAccount && (
-                <p className="text-xs text-arena-muted">
-                  {t.review.aiCoach.guestNote}
-                </p>
-              )}
-            </div>
-            {aiCoachSaveError && (
-              <p className="sm:col-span-2 text-xs text-arena-muted">
-                {t.review.aiCoach.saveError}
-              </p>
-            )}
-          </div>
-        )}
-
-        {!aiCoach && !aiCoachLoading && !aiCoachError && (
-          <p className="mt-3 text-sm text-arena-muted">
-            {isAccount ? t.review.accountBoundary : t.review.boundary}
-          </p>
-        )}
       </section>
     </div>
   );

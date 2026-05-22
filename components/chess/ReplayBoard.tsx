@@ -106,7 +106,7 @@ export default function ReplayBoard({
     "rounded border border-arena-border px-2.5 py-1 text-sm hover:border-arena-blue disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6">
+    <div className="flex flex-col gap-3">
       {/* Board + controls */}
       <div className="flex flex-col gap-3">
         <Board

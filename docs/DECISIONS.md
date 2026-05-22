@@ -295,3 +295,25 @@ Training "Ask AI about my answer" вызывает существующий `/ap
 
 ### Full UX redesign отложен
 Coach Timeline и Training карточки намеренно не являются финальным дизайном. Используются существующие токены (`arena-*`) и базовая структура. Полный redesign review-страницы — отдельный этап после завершения функционального блока и QA-прохода.
+
+## 2026-05-22 — Этап 5.3: Review Workspace UX restructure
+
+### Review page теперь structured workspace
+
+Review-страница реструктурирована из плоского вертикального стека в 2-col desktop workspace:
+
+- **Левая колонка**: Replay board + Ask AI about this move.
+  Визуальная связь: доска и вопрос про ход в одной колонке, без прокрутки между ними.
+- **Правая колонка**: AI Coach summary + Key moments + Training from mistakes.
+  AI-анализ и его производные (timeline, training) сгруппированы логически.
+- **Нижняя секция** (full width): demo coach signals + last sequence + training habit.
+  Это справочная информация, не основная рабочая поверхность.
+
+На mobile (< lg) grid автоматически стекается в одну колонку. DOM-порядок соответствует мобильному UX: Replay → Ask AI → AI summary → Key moments → Training.
+
+### ReplayBoard вертикальный стек
+
+`ReplayBoard.tsx` убрал внутренний `lg:grid-cols-2` (доска рядом с movelist). Теперь всегда `flex-col`: доска → кнопки навигации → movelist. Причина: при размещении в левой колонке workspace горизонтальный split давал слишком узкую доску. Вертикальный стек более читаем в колонке и на mobile.
+
+### Полный visual redesign — следующий отдельный этап
+Stage 5.3 — структурная перестановка без изменения цветов, типографики, токенов и brand. Полный redesign (включая новые ui patterns, анимации, улучшенные карточки) выделен в отдельный будущий этап.
