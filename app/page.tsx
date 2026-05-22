@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ArenaPreviewBoard from "@/components/chess/ArenaPreviewBoard";
+import ArenaAvatar from "@/components/profile/ArenaAvatar";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import {
+  loadProfileCustomization,
+  type ProfileCustomization,
+} from "@/lib/demo/customization";
 import { loadArenaCoinsBalance } from "@/lib/demo/economy";
 import {
   getOpponentDisplayName,
@@ -20,9 +25,13 @@ export default function HomePage() {
   const [losses, setLosses] = useState(0);
   const [draws, setDraws] = useState(0);
   const [arenaCoins, setArenaCoins] = useState(0);
+  const [customization, setCustomization] = useState<ProfileCustomization>(
+    loadProfileCustomization(),
+  );
 
   useEffect(() => {
     setArenaCoins(loadArenaCoinsBalance());
+    setCustomization(loadProfileCustomization());
     const saved = loadMatches();
     setMatches(saved.slice().reverse().slice(0, 5));
     const profile = loadGuestProfile();
@@ -72,6 +81,12 @@ export default function HomePage() {
 
             {/* Stats card */}
             <div className="w-full min-w-0 rounded-xl border border-arena-border bg-arena-bg px-5 py-4 sm:w-auto sm:min-w-[220px] sm:shrink-0">
+              <div className="mb-3 flex items-center gap-2">
+                <ArenaAvatar avatarId={customization.avatarId} className="h-9 w-9 text-xs" />
+                <div className="text-xs font-semibold text-arena-muted">
+                  {t.home.profileLabel}
+                </div>
+              </div>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-mono text-[2.2rem] font-bold leading-none">{guestRating ?? 1000}</span>
                 {wins > 0 && (
@@ -91,15 +106,15 @@ export default function HomePage() {
               >
                 <div className="bg-arena-panel px-2 py-2 text-center">
                   <div className="font-mono text-base font-semibold text-arena-win">{wins}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">Win</div>
+                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">{t.profile.stats.wins}</div>
                 </div>
                 <div className="bg-arena-panel px-2 py-2 text-center">
                   <div className="font-mono text-base font-semibold text-arena-loss">{losses}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">Loss</div>
+                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">{t.profile.stats.losses}</div>
                 </div>
                 <div className="bg-arena-panel px-2 py-2 text-center">
                   <div className="font-mono text-base font-semibold text-arena-muted">{draws}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">Draw</div>
+                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">{t.profile.stats.draws}</div>
                 </div>
               </div>
               <div className="text-xs text-arena-muted">
@@ -126,10 +141,10 @@ export default function HomePage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-arena-muted">
-                    {matches.length > 0 ? "Recent Games" : t.home.loopTitle}
+                    {matches.length > 0 ? t.home.recentGames : t.home.loopTitle}
                   </span>
                   <Link href="/profile" className="text-xs text-arena-blue hover:opacity-80">
-                    View all →
+                    {t.home.viewAll}
                   </Link>
                 </div>
 
@@ -206,7 +221,7 @@ export default function HomePage() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-arena-blue text-sm">◈</span>
-                  <span className="text-xs font-bold uppercase tracking-wider text-arena-blue">AI Coach Insight</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-arena-blue">{t.home.coachInsight}</span>
                 </div>
                 <p className="text-sm text-arena-muted leading-relaxed mb-3">
                   {t.home.loopBody}
@@ -227,7 +242,7 @@ export default function HomePage() {
               {/* Quick actions */}
               <div className="panel">
                 <div className="panel-hd">
-                  <span className="panel-ttl">Quick Actions</span>
+                  <span className="panel-ttl">{t.home.quickActions}</span>
                 </div>
                 <div className="p-2 flex flex-col gap-1.5">
                   <Link
@@ -247,7 +262,7 @@ export default function HomePage() {
                     >
                       <span className="text-lg text-arena-blue">◈</span>
                       <div>
-                        <div className="text-sm font-semibold">Review Last Game</div>
+                        <div className="text-sm font-semibold">{t.home.reviewLast}</div>
                         <div className="text-[10px] text-arena-muted">{t.review.eyebrow}</div>
                       </div>
                     </Link>
@@ -268,7 +283,7 @@ export default function HomePage() {
               {/* This week stats */}
               <div className="panel">
                 <div className="panel-hd">
-                  <span className="panel-ttl">This Session</span>
+                  <span className="panel-ttl">{t.home.session}</span>
                 </div>
                 <div className="p-3 grid grid-cols-2 gap-2">
                   {t.home.signals.map((signal) => (

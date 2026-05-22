@@ -322,6 +322,29 @@ export function getRatingLevel(rating: number): number {
   return 10;
 }
 
+export function getRatingLevelProgress(rating: number): {
+  level: number;
+  currentFloor: number;
+  nextFloor: number | null;
+  percent: number;
+} {
+  const level = getRatingLevel(rating);
+  const floors = [0, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400];
+  const currentFloor = floors[level - 1] ?? 0;
+  const nextFloor = level === 10 ? null : floors[level];
+  const percent = nextFloor === null
+    ? 100
+    : Math.min(
+        100,
+        Math.max(
+          0,
+          Math.round(((rating - currentFloor) / (nextFloor - currentFloor)) * 100),
+        ),
+      );
+
+  return { level, currentFloor, nextFloor, percent };
+}
+
 export function formatResult(result: MatchResult): string {
   if (result === "win") return "Win";
   if (result === "loss") return "Loss";

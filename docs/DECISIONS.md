@@ -385,3 +385,33 @@ SiteShell теперь использует `usePathname()` и передаёт 
 - `Play with friend by link` показывает fake invite surface и disabled room CTA.
   Настоящие rooms, WebSockets и multiplayer protocol отложены до отдельного
   realtime/backend этапа.
+
+## 2026-05-22 — Этап 8.1A: retention, economy, profile customization
+
+### Кастомизация и настройки как browser-local слой
+- Preset avatars, city selection, profile visibility и косметические сигналы
+  профиля живут в `localStorage` через отдельный customization helper.
+  Supabase `profiles` не расширялся: account и guest читают один локальный
+  cosmetic overlay в текущем браузере.
+- Avatar upload не добавлен. В Stage 8.1A доступны только curated presets,
+  чтобы не вводить file storage, moderation и schema/backend зависимости.
+- Settings reset очищает только local product counters и cosmetics:
+  Arena Coins, store purchases, Pro Trial ledger, free AI review counter и
+  profile customization. История матчей и auth/session не сбрасываются.
+
+### Economy и premium counters
+- Arena Store теперь использует существующий browser-local Arena Coins слой:
+  coin-items списывают AC и сохраняют ownership локально, Pro/Ultra items
+  остаются locked витриной без checkout и entitlements.
+- Pro Trial — локальный счётчик на 3 завершённые игры. Ledger по `matchId`
+  гарантирует, что rerender/reload не списывает trial дважды за один матч.
+- Free AI reviews — локальный счётчик на 3 успешные game-level генерации
+  `/api/coach`. Ошибка API и `not_configured` не списывают лимит. Уже
+  сохранённый account AI analysis по-прежнему читается из существующего
+  `ai_analysis` persistence без нового списания.
+
+### Границы
+- Реальные платежи, Stripe, WebSockets, multiplayer rooms, anti-cheat и bans
+  не добавлялись.
+- Supabase schema не менялась. Реальный entitlement/economy/social backend
+  остаётся после отдельного spec.

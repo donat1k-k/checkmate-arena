@@ -5,6 +5,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import type { Color, Square } from "chess.js";
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
+import ArenaAvatar from "@/components/profile/ArenaAvatar";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import { chooseAiMove } from "@/lib/chess/ai";
 import { ChessGame, type GameStatus, type PromotionPiece } from "@/lib/chess/engine";
@@ -12,6 +13,14 @@ import {
   loadArenaCoinsBalance,
   rewardArenaCoinsForMatch,
 } from "@/lib/demo/economy";
+import {
+  loadProfileCustomization,
+  type ProfileCustomization,
+} from "@/lib/demo/customization";
+import {
+  loadProTrialGamesLeft,
+  useProTrialForMatch,
+} from "@/lib/demo/retention";
 import {
   arenaAiOpponentId,
   clearActiveGame,
@@ -115,6 +124,10 @@ export default function PlayPage() {
     amount: number;
     balance: number;
   } | null>(null);
+  const [trialGamesLeft, setTrialGamesLeft] = useState(3);
+  const [customization, setCustomization] = useState<ProfileCustomization>(
+    loadProfileCustomization(),
+  );
 
   const game = gameRef.current;
   const status = game.status();
@@ -138,6 +151,8 @@ export default function PlayPage() {
 
   useEffect(() => {
     setArenaCoins(loadArenaCoinsBalance());
+    setTrialGamesLeft(loadProTrialGamesLeft());
+    setCustomization(loadProfileCustomization());
   }, []);
 
   useEffect(() => {
@@ -238,7 +253,9 @@ export default function PlayPage() {
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
       const reward = rewardArenaCoinsForMatch(saved.match.id);
+      const trial = useProTrialForMatch(saved.match.id);
       setArenaCoins(reward.balance);
+      setTrialGamesLeft(trial.gamesLeft);
       if (reward.awarded) {
         setCoinReward({ amount: reward.amount, balance: reward.balance });
       }
@@ -273,7 +290,9 @@ export default function PlayPage() {
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
       const reward = rewardArenaCoinsForMatch(saved.match.id);
+      const trial = useProTrialForMatch(saved.match.id);
       setArenaCoins(reward.balance);
+      setTrialGamesLeft(trial.gamesLeft);
       if (reward.awarded) {
         setCoinReward({ amount: reward.amount, balance: reward.balance });
       }
@@ -702,6 +721,19 @@ export default function PlayPage() {
             <p className="mt-1 text-[10px] text-arena-muted">{t.economy.internalOnly}</p>
           </div>
           <div className="sidebar-sec">
+            <div className="sidebar-sec-title">{t.profile.trialBadge}</div>
+            <p className="text-sm font-semibold">
+              {trialGamesLeft > 0
+                ? t.retention.proTrial(trialGamesLeft)
+                : t.retention.trialEnded}
+            </p>
+            {trialGamesLeft === 0 && (
+              <Link href="/pro" className="mt-2 inline-flex text-xs font-semibold text-arena-blue hover:opacity-80">
+                {t.retention.upgrade}
+              </Link>
+            )}
+          </div>
+          <div className="sidebar-sec">
             <div className="sidebar-sec-title">{t.play.opponent}</div>
             <div className="font-semibold text-sm">{opponentName}</div>
             <div className="font-mono text-xs text-arena-muted mt-0.5">{opponentRating}</div>
@@ -762,9 +794,7 @@ export default function PlayPage() {
 
           {/* Player bar */}
           <div className="w-full max-w-[480px] flex items-center gap-3 px-3.5 py-2.5 bg-arena-panel border border-arena-border rounded-lg">
-            <div className="h-9 w-9 rounded-full flex items-center justify-center bg-arena-blue text-white text-sm font-bold shrink-0">
-              {profile.nickname.slice(0, 2).toUpperCase()}
-            </div>
+            <ArenaAvatar avatarId={customization.avatarId} className="h-9 w-9 text-xs" />
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm truncate">
                 {profile.nickname}

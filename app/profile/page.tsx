@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ArenaAvatar from "@/components/profile/ArenaAvatar";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import {
+  loadProfileCustomization,
+  type ProfileCustomization,
+} from "@/lib/demo/customization";
 import { loadArenaCoinsBalance } from "@/lib/demo/economy";
+import { loadProTrialGamesLeft } from "@/lib/demo/retention";
 import {
   getGamesPlayed,
   getOpponentDisplayName,
   getRatingLevel,
+  getRatingLevelProgress,
   getWinRate,
   loadGuestProfile,
   loadMatches,
@@ -15,7 +22,7 @@ import {
   type LocalMatch,
   type MatchResult,
 } from "@/lib/demo/progress";
-import type { Locale } from "@/lib/i18n/translations";
+import type { AppTranslations, Locale } from "@/lib/i18n/translations";
 import { createClient } from "@/lib/supabase/client";
 import {
   loadAccountMatches,
@@ -52,6 +59,8 @@ type ProfileMatch = {
   ratingBefore?: number;
   ratingAfter?: number;
 };
+
+type StyleKey = keyof AppTranslations["profile"]["styles"];
 
 function formatDate(value: string, locale: Locale): string {
   return new Intl.DateTimeFormat(locale, {
@@ -116,6 +125,116 @@ function accountMatchView(match: AccountMatch): ProfileMatch {
   };
 }
 
+function ratingSeries(profile: ProfileView, matches: ProfileMatch[]): number[] {
+  if (matches.length === 0) return [];
+
+  if (matches.some((match) => match.ratingAfter !== undefined)) {
+    return matches
+      .slice()
+      .reverse()
+      .map((match) => match.ratingAfter)
+      .filter((rating): rating is number => typeof rating === "number");
+  }
+
+  const newestFirst = matches.slice();
+  let cursor = profile.rating;
+  const reversePoints = [cursor];
+  for (const match of newestFirst) {
+    cursor -= match.ratingDelta;
+    reversePoints.push(cursor);
+  }
+  return reversePoints.reverse();
+}
+
+function playerStyle(matches: ProfileMatch[]): {
+  key: StyleKey;
+  enoughGames: boolean;
+} {
+  if (matches.length < 3) return { key: "balanced", enoughGames: false };
+
+  const wins = matches.filter((match) => match.result === "win");
+  const draws = matches.filter((match) => match.result === "draw");
+  const fastWins = wins.filter((match) => match.moveCount <= 22).length;
+  const longGames = matches.filter((match) => match.moveCount >= 36).length;
+
+  if (fastWins >= 2) return { key: "aggressive", enoughGames: true };
+  if (longGames >= Math.ceil(matches.length / 2)) {
+    return { key: "endgame", enoughGames: true };
+  }
+  if (wins.length >= Math.ceil(matches.length * 0.6)) {
+    return { key: "tactician", enoughGames: true };
+  }
+  if (draws.length >= 2) return { key: "positional", enoughGames: true };
+  return { key: "balanced", enoughGames: true };
+}
+
+function EloGraph({
+  empty,
+  points,
+}: {
+  empty: string;
+  points: number[];
+}) {
+  if (points.length < 2) {
+    return (
+      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-arena-border bg-arena-elevated/60 px-4 text-center text-sm text-arena-muted">
+        {empty}
+      </div>
+    );
+  }
+
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const spread = Math.max(50, max - min);
+  const chartPoints = points
+    .map((rating, index) => {
+      const x = points.length === 1 ? 0 : (index / (points.length - 1)) * 100;
+      const y = 92 - ((rating - min) / spread) * 72;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <div className="rounded-md border border-arena-border bg-arena-elevated/60 p-3">
+      <svg
+        viewBox="0 0 100 100"
+        role="img"
+        className="h-36 w-full overflow-visible"
+        preserveAspectRatio="none"
+      >
+        <path d="M0 20H100 M0 56H100 M0 92H100" stroke="var(--color-arena-border)" strokeWidth="0.6" />
+        <polyline
+          points={chartPoints}
+          fill="none"
+          stroke="var(--color-arena-blue)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.2"
+        />
+        {points.map((rating, index) => {
+          const x = (index / (points.length - 1)) * 100;
+          const y = 92 - ((rating - min) / spread) * 72;
+          return (
+            <circle
+              key={`${rating}-${index}`}
+              cx={x}
+              cy={y}
+              r="1.8"
+              fill="var(--color-arena-panel)"
+              stroke="var(--color-arena-blue)"
+              strokeWidth="1"
+            />
+          );
+        })}
+      </svg>
+      <div className="mt-1 flex justify-between font-mono text-[10px] text-arena-muted">
+        <span>{points[0]}</span>
+        <span>{points[points.length - 1]}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { locale, t } = usePreferences();
   const [loaded, setLoaded] = useState(false);
@@ -124,10 +243,16 @@ export default function ProfilePage() {
   const [accountError, setAccountError] = useState(false);
   const [historyError, setHistoryError] = useState(false);
   const [arenaCoins, setArenaCoins] = useState(0);
+  const [trialGamesLeft, setTrialGamesLeft] = useState(3);
+  const [customization, setCustomization] = useState<ProfileCustomization>(
+    loadProfileCustomization(),
+  );
 
   useEffect(() => {
     let active = true;
     setArenaCoins(loadArenaCoinsBalance());
+    setTrialGamesLeft(loadProTrialGamesLeft());
+    setCustomization(loadProfileCustomization());
 
     async function loadProfilePage() {
       const supabase = createClient();
@@ -255,6 +380,10 @@ export default function ProfilePage() {
         t.match.opponent,
       )
     : null;
+  const progress = getRatingLevelProgress(profile.rating);
+  const graphPoints = ratingSeries(profile, matches);
+  const style = playerStyle(matches);
+  const clanTag = customization.clanTag || t.profile.clanOpen;
 
   return (
     <div className="flex flex-col gap-0 -mx-4 -mt-5 sm:-mt-6">
@@ -263,12 +392,7 @@ export default function ProfilePage() {
         <div className="mx-auto max-w-[1280px]">
           {/* Avatar + name row */}
           <div className="flex flex-wrap items-center gap-4 mb-5">
-            <div
-              className="h-[72px] w-[72px] shrink-0 rounded-full flex items-center justify-center text-2xl font-extrabold text-arena-blue"
-              style={{ background: "var(--color-arena-amber-bg)", border: "2px solid var(--color-arena-blue)" }}
-            >
-              {profile.nickname.slice(0, 2).toUpperCase()}
-            </div>
+            <ArenaAvatar avatarId={customization.avatarId} className="h-[72px] w-[72px] text-2xl" />
             <div>
               <h1 className="text-2xl font-extrabold">{profile.nickname}</h1>
               <div className="font-mono text-xs text-arena-muted mt-0.5">
@@ -286,6 +410,16 @@ export default function ProfilePage() {
                     {t.profile.badges.firstWin}
                   </span>
                 )}
+                <span className="rounded-full border border-arena-border bg-arena-elevated px-2.5 py-0.5 text-xs font-semibold text-arena-muted">
+                  {trialGamesLeft > 0 ? t.profile.trialBadge : t.profile.freeBadge}
+                </span>
+                <span className="rounded-full border border-arena-border bg-arena-elevated px-2.5 py-0.5 font-mono text-xs font-semibold">
+                  [{clanTag}]
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-arena-muted">
+                <span>{t.profile.city}: {t.settings.cities[customization.city]}</span>
+                <span>{t.profile.visibility}: {t.settings.visibilities[customization.visibility]}</span>
               </div>
             </div>
             <div className="ml-auto flex gap-2">
@@ -419,6 +553,110 @@ export default function ProfilePage() {
             </>
           )}
         </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {t.profile.progressEyebrow}
+          </p>
+          <div className="mt-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="font-mono text-3xl font-bold text-arena-blue">
+                LVL {progress.level}
+              </p>
+              <p className="mt-1 text-sm text-arena-muted">
+                {progress.nextFloor === null
+                  ? t.profile.maxLevel
+                  : t.profile.nextLevel(Math.max(0, progress.nextFloor - profile.rating))}
+              </p>
+            </div>
+            <p className="font-mono text-sm font-semibold">{profile.rating}</p>
+          </div>
+          <div className="mt-4 h-2 overflow-hidden rounded bg-arena-elevated">
+            <div
+              className="h-full rounded bg-arena-blue"
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+          <div className="mt-2 flex justify-between font-mono text-[10px] text-arena-muted">
+            <span>{progress.currentFloor}</span>
+            <span>{progress.nextFloor ?? `${progress.currentFloor}+`}</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {statItems.slice(3).slice(0, 4).map((stat) => (
+              <div key={stat.label} className="rounded bg-arena-elevated px-3 py-2">
+                <p className="font-mono text-sm font-bold">{stat.value}</p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-wide text-arena-muted">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+                {t.profile.eloGraph}
+              </p>
+              <p className="mt-1 text-sm text-arena-muted">{t.profile.graphBody}</p>
+            </div>
+            <p className="font-mono text-xs text-arena-muted">{graphPoints.length}</p>
+          </div>
+          <div className="mt-4">
+            <EloGraph empty={t.profile.graphEmpty} points={graphPoints} />
+          </div>
+        </article>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {t.profile.playerStyle}
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold">
+            {style.enoughGames ? t.profile.styles[style.key] : t.profile.notEnoughGames}
+          </h2>
+          <p className="mt-2 text-sm text-arena-muted">
+            {style.enoughGames ? t.profile.styleBody : t.profile.styles.balanced}
+          </p>
+          <div className="mt-4 rounded-md border border-arena-amber-border bg-arena-amber-bg px-3 py-2 text-xs font-semibold text-arena-muted">
+            {t.profile.styleLocked}
+          </div>
+        </article>
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {t.profile.premiumFrames}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-arena-border bg-arena-elevated p-3">
+              <ArenaAvatar avatarId={customization.avatarId} frame="pro" className="h-11 w-11 text-sm" />
+              <p className="mt-3 text-sm font-semibold">{t.profile.framePro}</p>
+              <p className="mt-1 text-xs text-arena-muted">{t.economy.store.lockedPro}</p>
+            </div>
+            <div className="rounded-md border border-arena-border bg-arena-elevated p-3">
+              <ArenaAvatar avatarId={customization.avatarId} frame="ultra" className="h-11 w-11 text-sm" />
+              <p className="mt-3 text-sm font-semibold">{t.profile.frameUltra}</p>
+              <p className="mt-1 text-xs text-arena-muted">{t.economy.store.lockedUltra}</p>
+            </div>
+          </div>
+        </article>
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {t.profile.clanTitle}
+          </p>
+          <p className="mt-2 font-mono text-2xl font-bold text-arena-blue">
+            [{clanTag}]
+          </p>
+          <p className="mt-2 text-sm text-arena-muted">{t.profile.clanBody}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button disabled className="rounded border border-arena-border px-3 py-1.5 text-xs font-semibold text-arena-muted disabled:cursor-not-allowed">
+              {t.profile.joinClan}
+            </button>
+            <button disabled className="rounded border border-arena-border px-3 py-1.5 text-xs font-semibold text-arena-muted disabled:cursor-not-allowed">
+              {t.profile.createClan}
+            </button>
+          </div>
+        </article>
       </section>
 
       <section className="rounded-lg border border-arena-border bg-arena-panel">

@@ -16,6 +16,10 @@ import {
   type LocalMatch,
   type MatchFinish,
 } from "@/lib/demo/progress";
+import {
+  consumeFreeAiReview,
+  loadFreeAiReviewsLeft,
+} from "@/lib/demo/retention";
 import type { AppTranslations, Locale } from "@/lib/i18n/translations";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -332,6 +336,7 @@ export default function ReviewPage() {
   const [aiCoachError, setAiCoachError] = useState<"not_configured" | "unavailable" | null>(null);
   const [aiCoachSaved, setAiCoachSaved] = useState(false);
   const [aiCoachSaveError, setAiCoachSaveError] = useState<"migrationNeeded" | "requestFailed" | null>(null);
+  const [freeAiReviewsLeft, setFreeAiReviewsLeft] = useState(3);
 
   const [selectedPly, setSelectedPly] = useState(0);
   const [selectedSan, setSelectedSan] = useState<string | null>(null);
@@ -352,6 +357,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     let active = true;
+    setFreeAiReviewsLeft(loadFreeAiReviewsLeft());
     async function loadReview() {
       const savedLocalMatch = loadMatches().find((m) => m.id === matchId) ?? null;
       if (savedLocalMatch) {
@@ -387,6 +393,7 @@ export default function ReviewPage() {
     currentLocalMatch: LocalMatch | null,
     currentAccountMatch: AccountMatch | null,
   ) {
+    if (freeAiReviewsLeft === 0) return;
     setAiCoachLoading(true);
     setAiCoachError(null);
     setAiCoachSaveError(null);
@@ -418,6 +425,7 @@ export default function ReviewPage() {
         setAiCoach(result);
         setAiCoachSaved(false);
         setTrainingState({});
+        setFreeAiReviewsLeft(consumeFreeAiReview().reviewsLeft);
         if (currentAccountMatch && matchId) {
           const supabase = createClient();
           if (supabase) {
@@ -690,7 +698,11 @@ export default function ReviewPage() {
                   </div>
                   {aiCoach && (
                     <div className="acc-chip">
-                      {match.result === "win" ? "✓ Win" : match.result === "loss" ? "✗ Loss" : "½ Draw"}
+                      {match.result === "win"
+                        ? t.review.aiCoach.stats.win
+                        : match.result === "loss"
+                          ? t.review.aiCoach.stats.loss
+                          : t.review.aiCoach.stats.draw}
                     </div>
                   )}
                 </div>
@@ -701,25 +713,25 @@ export default function ReviewPage() {
                       <div className="cstat-val" style={{ color: "var(--color-arena-loss)" }}>
                         {aiCoach.keyMoments?.filter(m => m.type === "critical").length ?? 0}
                       </div>
-                      <div className="cstat-lbl">Blunders</div>
+                      <div className="cstat-lbl">{t.review.aiCoach.stats.blunders}</div>
                     </div>
                     <div>
                       <div className="cstat-val" style={{ color: "#ea580c" }}>
                         {aiCoach.keyMoments?.filter(m => m.type === "mistake").length ?? 0}
                       </div>
-                      <div className="cstat-lbl">Mistakes</div>
+                      <div className="cstat-lbl">{t.review.aiCoach.stats.mistakes}</div>
                     </div>
                     <div>
                       <div className="cstat-val" style={{ color: "#d97706" }}>
                         {aiCoach.keyMoments?.filter(m => m.type === "inaccuracy").length ?? 0}
                       </div>
-                      <div className="cstat-lbl">Inaccur.</div>
+                      <div className="cstat-lbl">{t.review.aiCoach.stats.inaccuracies}</div>
                     </div>
                     <div>
                       <div className="cstat-val" style={{ color: "var(--color-arena-win)" }}>
                         {aiCoach.keyMoments?.filter(m => m.type === "good").length ?? 0}
                       </div>
-                      <div className="cstat-lbl">Good</div>
+                      <div className="cstat-lbl">{t.review.aiCoach.stats.good}</div>
                     </div>
                   </div>
                 )}
@@ -746,6 +758,17 @@ export default function ReviewPage() {
                     {isAccount ? t.review.accountBoundary : t.review.boundary}
                   </p>
                 )}
+                <div className="mb-2 rounded border border-arena-border bg-arena-elevated px-2.5 py-2 text-xs font-semibold text-arena-muted">
+                  {t.retention.freeReviews(freeAiReviewsLeft)}
+                </div>
+                {freeAiReviewsLeft === 0 && (
+                  <div className="mb-2 rounded border border-arena-amber-border bg-arena-amber-bg px-2.5 py-2">
+                    <p className="text-xs text-arena-muted">{t.retention.reviewLimitReached}</p>
+                    <Link href="/pro" className="mt-1 inline-flex text-xs font-semibold text-arena-blue hover:opacity-80">
+                      {t.retention.upgrade}
+                    </Link>
+                  </div>
+                )}
                 {aiCoachLoading && (
                   <p className="text-xs text-arena-muted animate-pulse mb-2">{t.review.aiCoach.generating}</p>
                 )}
@@ -760,7 +783,8 @@ export default function ReviewPage() {
                   {!aiCoachLoading && (
                     <button
                       onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
-                      className="rounded bg-arena-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                      disabled={freeAiReviewsLeft === 0}
+                      className="rounded bg-arena-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {aiCoach ? t.review.aiCoach.regenerateBtn : t.review.aiCoach.generateBtn}
                     </button>

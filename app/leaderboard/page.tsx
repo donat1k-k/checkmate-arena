@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import { loadProfileCustomization } from "@/lib/demo/customization";
 import { loadGuestProfile } from "@/lib/demo/progress";
 import type { AppTranslations } from "@/lib/i18n/translations";
 import { createClient } from "@/lib/supabase/client";
@@ -72,7 +73,18 @@ export default function LeaderboardPage() {
 
       setIsAccount(false);
       setHasGuestProfile(guestProfile !== null);
-      setRows(buildDemoLeaderboard(guestProfile));
+      const customization = loadProfileCustomization();
+      setRows(
+        buildDemoLeaderboard(guestProfile).map((row) =>
+          row.isYou
+            ? {
+                ...row,
+                cityKey: customization.city,
+                clanTag: customization.clanTag || row.clanTag,
+              }
+            : row,
+        ),
+      );
       setLoaded(true);
     }
 
