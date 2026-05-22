@@ -843,3 +843,70 @@ create policy reviews_update_participant
 
 ### Что будет следующим этапом
 - **5.0 Ask AI about this move** — контекстный вопрос AI про конкретный ход прямо из replay UI.
+
+## Этап 5.0 — Ask AI about this move. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. `components/chess/ReplayBoard.tsx`** — добавлен optional prop `onPlyChange`:
+- `onPlyChange?: (ply: number, san: string | null, fen: string) => void`
+- `useEffect([currentPly])` вызывает callback при каждом изменении ply.
+- FEN берётся из уже вычисленного `positions[currentPly]`.
+- Все существующие пути навигации (кнопки, клик по списку ходов, keyMove jump) не тронуты.
+
+**2. `lib/ai/moveQuestionPrompt.ts`** — новый prompt builder:
+- Принимает `locale`, `sanMoves`, `selectedPly/San/Fen`, `existingAnalysis?`, `question`, `result/playerColor/moveCount`.
+- EN/RU system prompt: chess coach, answer concisely, no engine evals.
+- Просит JSON: `{ answer, betterPlan, trainingTip }`.
+
+**3. `app/api/coach/move/route.ts`** — новый server route `POST /api/coach/move`:
+- Читает те же env: `AI_COACH_API_BASE_URL`, `AI_COACH_API_KEY`, `AI_COACH_MODEL`.
+- При отсутствии env → `{ available: false, reason: "not_configured" }`.
+- Валидация: пустой вопрос → 400 `empty_question`; > 500 символов → 400 `question_too_long`.
+- Стриппинг markdown fences при парсинге JSON (как в основном route).
+- Возвращает `{ available: true, answer, betterPlan, trainingTip }` или `{ available: false, reason }`.
+
+**4. `lib/i18n/translations.ts`** — добавлен namespace `review.askMove` (RU/EN):
+- `eyebrow`, `selectedMove`, `noMoveSelected`, `questionPlaceholder`,
+  `askBtn`, `askingBtn`, `notConfigured`, `error`, `emptyQuestion`,
+  `questionTooLong`, `answer`, `betterPlan`, `trainingTip`, `history`, `quickQuestions[4]`.
+
+**5. `app/review/[matchId]/page.tsx`** — новая секция + wire up:
+- State: `selectedPly/San/Fen`, `moveQuestion`, `moveQLoading`, `moveQError`, `moveQResult`, `moveQHistory`.
+- ReplayBoard получает `onPlyChange` → обновляет selected move state.
+- Секция "Ask AI about this move" рендерится при `match.sanMoves.length > 0`.
+- Выбранный ход: чип с `ply. SAN`; если не выбран — подсказка.
+- 4 быстрые кнопки-вопроса появляются только когда ход выбран.
+- Textarea с ограничением 500 символов + счётчик.
+- После ответа: 3 карточки `answer/betterPlan/trainingTip`.
+- `moveQHistory`: последние вопросы показываются ниже (session-only, пропадают при reload — ожидаемо).
+- Все ошибки (`not_configured`, `empty_question`, `question_too_long`, прочие) → i18n строки, без сырых ошибок.
+
+### Что не делалось
+- Supabase schema не менялась; move questions не сохраняются в DB.
+- Chess engine, multiplayer, realtime, auth flow — не трогались.
+
+### Env для Ask AI
+Те же, что для основного AI Coach:
+- `AI_COACH_API_BASE_URL`
+- `AI_COACH_API_KEY`
+- `AI_COACH_MODEL`
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK.
+- Browser tool недоступен для localhost — см. ручной чеклист ниже.
+
+### Что проверить вручную
+1. `npm run dev` → guest review → step через replay → выбрать ход → нажать быстрый вопрос → Спросить → 3 карточки ответа.
+2. Ввести свой вопрос → Спросить → ответ появляется.
+3. Несколько вопросов → история вопросов показывается ниже.
+4. Не выбран ход → textarea/кнопка disabled, быстрые вопросы не видны.
+5. Без AI env → `notConfigured` текст, страница не падает.
+6. Account review после reload → секция Ask AI присутствует, старый AI analysis не ломается.
+7. RU/EN переключение → все строки `askMove` следуют языку.
+8. Mobile 375px → секция стекается вертикально корректно.
+
+### Следующий логичный этап
+- **5.1**: `finish_reason` колонка в `matches` для корректного label ничьих в review.
+- **5.2**: Сохранение move questions в DB (если нужна история между сессиями).

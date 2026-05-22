@@ -29,6 +29,7 @@ import {
   type AiAnalysis,
 } from "@/lib/supabase/reviews";
 import type { CoachApiResponse } from "@/app/api/coach/route";
+import type { MoveQuestionResponse } from "@/app/api/coach/move/route";
 
 function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -100,6 +101,28 @@ export default function ReviewPage() {
   const [aiCoachError, setAiCoachError] = useState<"not_configured" | "unavailable" | null>(null);
   const [aiCoachSaved, setAiCoachSaved] = useState(false);
   const [aiCoachSaveError, setAiCoachSaveError] = useState<"migrationNeeded" | "requestFailed" | null>(null);
+
+  const [selectedPly, setSelectedPly] = useState(0);
+  const [selectedSan, setSelectedSan] = useState<string | null>(null);
+  const [selectedFen, setSelectedFen] = useState("");
+  const [moveQuestion, setMoveQuestion] = useState("");
+  const [moveQLoading, setMoveQLoading] = useState(false);
+  const [moveQError, setMoveQError] = useState<string | null>(null);
+  const [moveQResult, setMoveQResult] = useState<{
+    answer: string;
+    betterPlan: string;
+    trainingTip: string;
+  } | null>(null);
+  const [moveQHistory, setMoveQHistory] = useState<
+    Array<{
+      ply: number;
+      san: string | null;
+      question: string;
+      answer: string;
+      betterPlan: string;
+      trainingTip: string;
+    }>
+  >([]);
 
   useEffect(() => {
     let active = true;
@@ -206,6 +229,72 @@ export default function ReviewPage() {
       setAiCoachError("unavailable");
     } finally {
       setAiCoachLoading(false);
+    }
+  }
+
+  async function handleAskMoveQuestion(
+    currentMatch: LocalMatch | AccountMatch,
+  ) {
+    const question = moveQuestion.trim();
+    if (!question) {
+      setMoveQError("empty_question");
+      return;
+    }
+    if (question.length > 500) {
+      setMoveQError("question_too_long");
+      return;
+    }
+
+    setMoveQLoading(true);
+    setMoveQError(null);
+    setMoveQResult(null);
+
+    try {
+      const res = await fetch("/api/coach/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locale,
+          sanMoves: currentMatch.sanMoves,
+          selectedPly,
+          selectedSan,
+          selectedFen,
+          existingAnalysis: aiCoach
+            ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
+            : null,
+          question,
+          result: currentMatch.result,
+          playerColor: currentMatch.playerColor,
+          moveCount: currentMatch.moveCount,
+        }),
+      });
+
+      const data = (await res.json()) as MoveQuestionResponse;
+
+      if (data.available) {
+        const result = {
+          answer: data.answer,
+          betterPlan: data.betterPlan,
+          trainingTip: data.trainingTip,
+        };
+        setMoveQResult(result);
+        setMoveQHistory((prev) => [
+          {
+            ply: selectedPly,
+            san: selectedSan,
+            question,
+            ...result,
+          },
+          ...prev,
+        ]);
+        setMoveQuestion("");
+      } else {
+        setMoveQError(data.reason);
+      }
+    } catch {
+      setMoveQError("unavailable");
+    } finally {
+      setMoveQLoading(false);
     }
   }
 
@@ -337,7 +426,151 @@ export default function ReviewPage() {
             keyMovePly={aiCoach?.keyMovePly}
             keyMoveSan={aiCoach?.keyMoveSan}
             keyMoveComment={aiCoach?.keyMoveComment}
+            onPlyChange={(ply, san, fen) => {
+              setSelectedPly(ply);
+              setSelectedSan(san);
+              setSelectedFen(fen);
+            }}
           />
+        </section>
+      )}
+
+      {match.sanMoves.length > 0 && (
+        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="text-sm font-medium text-arena-gold">
+            {t.review.askMove.eyebrow}
+          </p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-xs text-arena-muted">
+              {t.review.askMove.selectedMove}:
+            </span>
+            {selectedSan ? (
+              <span className="rounded bg-arena-elevated px-2 py-0.5 font-mono text-sm font-medium">
+                {selectedPly}. {selectedSan}
+              </span>
+            ) : (
+              <span className="text-xs text-arena-muted">
+                {t.review.askMove.noMoveSelected}
+              </span>
+            )}
+          </div>
+
+          {selectedSan && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {t.review.askMove.quickQuestions.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setMoveQuestion(q)}
+                  className="rounded-full border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-col gap-2">
+            <textarea
+              value={moveQuestion}
+              onChange={(e) => setMoveQuestion(e.target.value.slice(0, 500))}
+              placeholder={t.review.askMove.questionPlaceholder}
+              disabled={!selectedSan || moveQLoading}
+              rows={2}
+              className="w-full resize-none rounded-md border border-arena-border bg-arena-elevated px-3 py-2 text-sm placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-arena-muted">
+                {moveQuestion.length}/500
+              </span>
+              <button
+                onClick={() => void handleAskMoveQuestion(match)}
+                disabled={!selectedSan || !moveQuestion.trim() || moveQLoading}
+                className="rounded-md bg-arena-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {moveQLoading
+                  ? t.review.askMove.askingBtn
+                  : t.review.askMove.askBtn}
+              </button>
+            </div>
+          </div>
+
+          {moveQError === "not_configured" && (
+            <p className="mt-3 text-sm text-arena-muted">
+              {t.review.askMove.notConfigured}
+            </p>
+          )}
+          {moveQError === "empty_question" && (
+            <p className="mt-3 text-sm text-arena-muted">
+              {t.review.askMove.emptyQuestion}
+            </p>
+          )}
+          {moveQError === "question_too_long" && (
+            <p className="mt-3 text-sm text-arena-muted">
+              {t.review.askMove.questionTooLong}
+            </p>
+          )}
+          {moveQError &&
+            moveQError !== "not_configured" &&
+            moveQError !== "empty_question" &&
+            moveQError !== "question_too_long" && (
+              <p className="mt-3 text-sm text-arena-muted">
+                {t.review.askMove.error}
+              </p>
+            )}
+
+          {moveQResult && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                <p className="text-xs text-arena-muted">
+                  {t.review.askMove.answer}
+                </p>
+                <p className="mt-1 text-sm">{moveQResult.answer}</p>
+              </div>
+              <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                <p className="text-xs text-arena-muted">
+                  {t.review.askMove.betterPlan}
+                </p>
+                <p className="mt-1 font-mono text-sm">
+                  {moveQResult.betterPlan}
+                </p>
+              </div>
+              <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+                <p className="text-xs text-arena-muted">
+                  {t.review.askMove.trainingTip}
+                </p>
+                <p className="mt-1 text-sm">{moveQResult.trainingTip}</p>
+              </div>
+            </div>
+          )}
+
+          {moveQHistory.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-medium text-arena-muted">
+                {t.review.askMove.history}
+              </p>
+              <div className="flex flex-col gap-3">
+                {moveQHistory.map((item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-md border border-arena-border bg-arena-elevated p-3"
+                  >
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      {item.san && (
+                        <span className="rounded bg-arena-panel px-1.5 py-0.5 font-mono text-xs">
+                          {item.ply}. {item.san}
+                        </span>
+                      )}
+                      <span className="text-xs text-arena-muted italic">
+                        {item.question}
+                      </span>
+                    </div>
+                    <p className="text-sm">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

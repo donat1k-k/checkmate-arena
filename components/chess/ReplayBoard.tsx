@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Chess, type Color } from "chess.js";
 import Board from "@/components/chess/Board";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
@@ -19,6 +19,7 @@ type ReplayBoardProps = {
   keyMovePly?: number;
   keyMoveSan?: string;
   keyMoveComment?: string;
+  onPlyChange?: (ply: number, san: string | null, fen: string) => void;
 };
 
 export default function ReplayBoard({
@@ -27,6 +28,7 @@ export default function ReplayBoard({
   keyMovePly,
   keyMoveSan,
   keyMoveComment,
+  onPlyChange,
 }: ReplayBoardProps) {
   const { t } = usePreferences();
   const tr = t.review.replay;
@@ -46,6 +48,13 @@ export default function ReplayBoard({
   }, [sanMoves]);
 
   const [currentPly, setCurrentPly] = useState(0);
+
+  useEffect(() => {
+    if (!onPlyChange) return;
+    const san = currentPly > 0 ? (sanMoves[currentPly - 1] ?? null) : null;
+    const fen = positions[currentPly] ?? positions[positions.length - 1] ?? "";
+    onPlyChange(currentPly, san, fen);
+  }, [currentPly, onPlyChange, sanMoves, positions]);
 
   const total = positions.length - 1;
   const atStart = currentPly === 0;

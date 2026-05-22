@@ -259,3 +259,19 @@ Stage 3.2 не переносит local matches/reviews в Supabase. Для сл
 
 ### keyMove поля в AiAnalysis JSONB без миграции
 `keyMovePly`, `keyMoveSan`, `keyMoveComment` — опциональные поля в существующем `ai_analysis jsonb`. Никакой SQL-миграции не требуется: старые строки без этих полей читаются нормально (toAiAnalysis возвращает undefined), новые строки с полями — сохраняются и читаются. JSONB гибкость — именно для таких расширений.
+
+## 2026-05-22 — Этап 5.0: Ask AI about this move
+
+### Move questions — session-only, без DB
+Вопросы к AI про конкретный ход хранятся только в React state (`moveQHistory`) на странице review. После reload история пропадает. Причины: move question — интерактивная сессионная механика, а не персистентный анализ; нет смысла занимать колонки в `match_reviews` для произвольного числа вопросов на матч; схема не изменяется.
+
+### Selected move context передаётся server-side
+`POST /api/coach/move` принимает `selectedPly`, `selectedSan`, `selectedFen` плюс полный SAN-список. Сервер видит позицию, не клиент. API key не уходит в браузер — та же модель, что и у `/api/coach`.
+
+Отдельный route `/api/coach/move/route.ts` вместо единого — потому что тип ответа (`answer/betterPlan/trainingTip`) принципиально отличается от game-level анализа (`mainMistake/bestAlternative/whyImportant/trainNext`). Общий route усложнил бы типизацию и промпты.
+
+### onPlyChange callback в ReplayBoard
+ReplayBoard остался uncontrolled (сам хранит `currentPly`). Добавлен опциональный `onPlyChange(ply, san, fen)` через `useEffect([currentPly])`. Все пути изменения ply (кнопки, клик на ход, keyMove jump) проходят через один `setCurrentPly`, поэтому одного effect достаточно. Нет риска сломать навигацию.
+
+### Валидация вопроса
+Клиент: срез строки до 500 символов при вводе. Сервер: проверяет непустой вопрос (400) и длину > 500 (400). UI показывает соответствующие i18n строки без сырых ошибок.
