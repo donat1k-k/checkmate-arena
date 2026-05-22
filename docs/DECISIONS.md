@@ -243,7 +243,19 @@ Stage 3.2 не переносит local matches/reviews в Supabase. Для сл
 
 ### Схема AiAnalysis
 ```
-{ mainMistake, bestAlternative, whyImportant, trainNext: string }
+{
+  mainMistake, bestAlternative, whyImportant, trainNext: string,
+  keyMovePly?: number, keyMoveSan?: string, keyMoveComment?: string
+}
 ```
-Валидатор `toAiAnalysis()` проверяет все четыре string-поля перед
-использованием — защита от частичной записи или изменения формата.
+Валидатор `toAiAnalysis()` проверяет 4 обязательных string-поля, опциональные key move поля копирует только при правильном типе — защита от частичной записи или изменения формата. Старые объекты без key move полей читаются без краша.
+
+## 2026-05-22 — Этап 4.4: Interactive Review Replay
+
+### Replay из sanMoves на клиенте
+Позиции восстанавливаются на клиенте: `new Chess()` + цикл `chess.move(san)` по `sanMoves[]`. Это не требует нового API, движка или server-side вычислений. FEN на каждый ply сохраняется в `useMemo`. При невалидном SAN цикл прерывается — показываем то, что успели вычислить.
+
+Почему не через `ChessGame` (engine.ts): replay — read-only, `resign` state не нужен, проще создавать чистый `Chess()` без обёртки. `engine.ts` не менялся.
+
+### keyMove поля в AiAnalysis JSONB без миграции
+`keyMovePly`, `keyMoveSan`, `keyMoveComment` — опциональные поля в существующем `ai_analysis jsonb`. Никакой SQL-миграции не требуется: старые строки без этих полей читаются нормально (toAiAnalysis возвращает undefined), новые строки с полями — сохраняются и читаются. JSONB гибкость — именно для таких расширений.

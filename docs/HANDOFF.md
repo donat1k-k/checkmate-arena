@@ -789,5 +789,57 @@ create policy reviews_update_participant
 
 ### Следующий этап
 
-- **4.4**: Streaming AI response (ReadableStream) для немедленного отображения.
+- **4.4**: Interactive Review Replay — интерактивная доска на /review.
 - **5.0**: `finish_reason` колонка в `matches` для корректного label ничьих.
+
+## Этап 4.4 — Interactive Review Replay. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. `components/chess/ReplayBoard.tsx`** — новый компонент:
+- `useMemo` строит массив FEN-позиций из `sanMoves[]` через `new Chess()` (chess.js напрямую, не ChessGame-обёртка).
+- `currentPly` state: 0 = стартовая позиция, N = после N-го полухода.
+- Отображает read-only `Board` (react-chessboard v5, `allowDragging=false`).
+- Навигация: ⏮ ◀ ▶ ⏭ (Start / Prev / Next / End), счётчик «Ход X из Y».
+- Кликабельный список ходов: пары белый/чёрный, выбранный ply подсвечен синим.
+- Если `keyMovePly` задан: кнопка «Перейти к ключевому ходу»; при активном ply показывает `keyMoveComment`.
+- Fallback: если `sanMoves` пустой — показывает строку `noMoves` без краша.
+- Новые зависимости не добавлены — используются уже имеющиеся chess.js и react-chessboard.
+
+**2. `lib/supabase/reviews.ts`** — расширен `AiAnalysis`:
+- Добавлены опциональные поля `keyMovePly?: number`, `keyMoveSan?: string`, `keyMoveComment?: string`.
+- `toAiAnalysis()` безопасно копирует новые поля; старые сохранённые объекты без них — не ломаются.
+
+**3. `lib/ai/coachPrompt.ts`** — расширена JSON schema:
+- EN и RU schema просят AI при возможности указать `keyMovePly`, `keyMoveSan`, `keyMoveComment`.
+- Явное правило: если ключевой момент неочевиден — опустить все три поля.
+
+**4. `lib/i18n/translations.ts`** — добавлен namespace `review.replay` (RU/EN):
+- `eyebrow`, `moveOf`, `currentMove`, `btnStart/Prev/Next/End`, `goToKeyMove`, `keyMoment`, `noMoves`, `startPosition`.
+
+**5. `app/review/[matchId]/page.tsx`**:
+- Новая секция Replay вставлена между stats-карточками и блоком demo heuristic insights.
+- Условие: `match.sanMoves.length > 0` — при пустом списке секция не рендерится.
+- `keyMovePly/San/Comment` передаются из `aiCoach` state → обновляются при генерации AI.
+
+### Supabase schema
+Не менялась. `ai_analysis jsonb` принимает новые поля без миграции.
+
+### Команды и проверки
+- `npm run build` — OK (13 routes, TypeScript OK).
+- `git diff --check` — OK (только LF→CRLF warnings).
+- Browser tool недоступен для localhost — см. ручной чеклист ниже.
+
+### Что проверить вручную
+1. `npm run dev` → сыграть guest-матч → открыть Review → видна доска, кнопки ⏮◀▶⏭ работают.
+2. Клик по ходу в списке → доска переходит на ту позицию, ход подсвечен синим.
+3. Кнопка «В начало» → стартовая позиция, «Текущий ход: Стартовая позиция».
+4. Account review после reload → доска восстанавливается из sanMoves Supabase.
+5. AI Coach сгенерирован → если AI вернул `keyMovePly` → кнопка «Перейти к ключевому ходу» появилась.
+6. Клик на кнопку → доска переходит на ply, под доской — `keyMoveComment`.
+7. AI без `keyMovePly` (старый формат) → кнопка отсутствует, страница не падает.
+8. RU/EN переключение → все replay-строки следуют языку.
+9. Mobile 375px → доска сверху, список ходов снизу (вертикальный стек).
+
+### Что будет следующим этапом
+- **5.0 Ask AI about this move** — контекстный вопрос AI про конкретный ход прямо из replay UI.

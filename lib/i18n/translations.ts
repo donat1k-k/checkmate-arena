@@ -399,6 +399,19 @@ export const translations = {
         candidateTraining:
           "Train candidate moves: list one improving move and one forcing move before committing.",
       },
+      replay: {
+        eyebrow: "Replay",
+        moveOf: (ply: number, total: number) => `Move ${ply} of ${total}`,
+        currentMove: "Current move",
+        btnStart: "Start",
+        btnPrev: "Previous",
+        btnNext: "Next",
+        btnEnd: "End",
+        goToKeyMove: "Go to key move",
+        keyMoment: "Key moment",
+        noMoves: "No move history available for replay.",
+        startPosition: "Start position",
+      },
     },
     pro: {
       eyebrow: "Monetization concept",
@@ -799,6 +812,19 @@ export const translations = {
           "Тренируйте расчёт разменов: сравнивайте угрозы до и после каждого взятия.",
         candidateTraining:
           "Тренируйте ходы-кандидаты: назовите один улучшающий и один форсированный ход перед выбором.",
+      },
+      replay: {
+        eyebrow: "Повтор",
+        moveOf: (ply: number, total: number) => `Ход ${ply} из ${total}`,
+        currentMove: "Текущий ход",
+        btnStart: "В начало",
+        btnPrev: "Назад",
+        btnNext: "Вперёд",
+        btnEnd: "В конец",
+        goToKeyMove: "Перейти к ключевому ходу",
+        keyMoment: "Ключевой момент",
+        noMoves: "История ходов недоступна для повтора.",
+        startPosition: "Стартовая позиция",
       },
     },
     pro: {

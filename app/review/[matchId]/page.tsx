@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import ReplayBoard from "@/components/chess/ReplayBoard";
 import {
   buildDemoCoachReview,
   type DemoCoachReview,
@@ -324,6 +325,21 @@ export default function ReviewPage() {
           <p className="mt-1 font-semibold">{t.review.fullMoves(match.moveCount)}</p>
         </div>
       </section>
+
+      {match.sanMoves.length > 0 && (
+        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="mb-4 text-sm font-medium text-arena-gold">
+            {t.review.replay.eyebrow}
+          </p>
+          <ReplayBoard
+            sanMoves={match.sanMoves}
+            playerColor={match.playerColor}
+            keyMovePly={aiCoach?.keyMovePly}
+            keyMoveSan={aiCoach?.keyMoveSan}
+            keyMoveComment={aiCoach?.keyMoveComment}
+          />
+        </section>
+      )}
 
       <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

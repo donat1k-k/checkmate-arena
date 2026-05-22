@@ -6,6 +6,9 @@ export type AiAnalysis = {
   bestAlternative: string;
   whyImportant: string;
   trainNext: string;
+  keyMovePly?: number;
+  keyMoveSan?: string;
+  keyMoveComment?: string;
 };
 
 export type AccountReview = {
@@ -66,6 +69,9 @@ function toAiAnalysis(value: unknown): AiAnalysis | null {
     bestAlternative: a.bestAlternative,
     whyImportant: a.whyImportant,
     trainNext: a.trainNext,
+    keyMovePly: typeof a.keyMovePly === "number" ? a.keyMovePly : undefined,
+    keyMoveSan: typeof a.keyMoveSan === "string" ? a.keyMoveSan : undefined,
+    keyMoveComment: typeof a.keyMoveComment === "string" ? a.keyMoveComment : undefined,
   };
 }
 

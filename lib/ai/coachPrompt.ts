@@ -17,32 +17,40 @@ export type CoachPromptMessages = {
   user: string;
 };
 
-const JSON_SCHEMA_EN = `Respond with a valid JSON object using exactly these four keys:
+const JSON_SCHEMA_EN = `Respond with a valid JSON object using these keys:
 {
   "mainMistake": "1-2 sentences: the key mistake or missed opportunity in this game",
   "bestAlternative": "The better move or plan (use SAN notation where applicable, e.g. Nf3, Rd1)",
   "whyImportant": "1-2 sentences: why this matters tactically or positionally",
-  "trainNext": "One concrete habit to focus on in the next game"
+  "trainNext": "One concrete habit to focus on in the next game",
+  "keyMovePly": 0,
+  "keyMoveSan": "e4",
+  "keyMoveComment": "One sentence: why this half-move is the key turning point"
 }
 
 Rules:
 - Do not claim engine precision or invent centipawn values
 - If the player won, focus on what nearly went wrong or what pattern to repeat
 - Be specific to the moves provided, not generic
+- keyMovePly is the 0-based half-move index of the single most important moment; keyMoveSan is its SAN; keyMoveComment explains why — omit all three if the key moment is unclear
 - Return only the JSON object, no markdown fences, no preamble`;
 
-const JSON_SCHEMA_RU = `Ответь валидным JSON-объектом ровно с этими четырьмя ключами:
+const JSON_SCHEMA_RU = `Ответь валидным JSON-объектом с этими ключами:
 {
   "mainMistake": "1-2 предложения: главная ошибка или упущенная возможность в этой партии",
   "bestAlternative": "Лучший ход или план (используй SAN-нотацию, если применимо: Nf3, Rd1)",
   "whyImportant": "1-2 предложения: почему это важно тактически или позиционно",
-  "trainNext": "Одна конкретная привычка для следующей партии"
+  "trainNext": "Одна конкретная привычка для следующей партии",
+  "keyMovePly": 0,
+  "keyMoveSan": "e4",
+  "keyMoveComment": "Одно предложение: почему этот полуход является ключевым поворотным моментом"
 }
 
 Правила:
 - Не утверждай engine-точность и не придумывай оценки в центипешках
 - Если игрок выиграл — сосредоточься на том, что почти пошло не так, или на паттерне, который стоит повторить
 - Будь конкретным по предоставленным ходам, не обобщай
+- keyMovePly — 0-based индекс полухода самого важного момента; keyMoveSan — его SAN; keyMoveComment — объяснение почему; если ключевой момент неочевиден — опусти все три поля
 - Возвращай только JSON-объект, без markdown и преамбулы`;
 
 export function buildCoachPrompt(input: CoachPromptInput): CoachPromptMessages {
