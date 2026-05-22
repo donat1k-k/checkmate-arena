@@ -14,6 +14,7 @@ import {
 } from "@/lib/demo/customization";
 import { resetArenaEconomy } from "@/lib/demo/economy";
 import { resetRetentionState } from "@/lib/demo/retention";
+import { resetBlitzStats } from "@/lib/demo/blitz";
 import {
   LOCALES,
   THEMES,
@@ -55,6 +56,7 @@ export default function SettingsPage() {
     if (!window.confirm(t.settings.resetConfirm)) return;
     resetArenaEconomy();
     resetRetentionState();
+    resetBlitzStats();
     resetProfileCustomization();
     setCustomization(loadProfileCustomization());
     setResetDone(true);

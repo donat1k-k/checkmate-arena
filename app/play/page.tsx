@@ -615,6 +615,15 @@ export default function PlayPage() {
                   {t.play.modeAiBody}
                 </span>
               </button>
+              <Link
+                href="/blitz"
+                className="rounded border border-arena-border bg-arena-panel px-3 py-2 text-left hover:border-arena-blue block"
+              >
+                <span className="block text-xs font-semibold">⚡ {t.blitz.title}</span>
+                <span className="mt-0.5 block text-[10px] text-arena-muted">
+                  {t.blitz.eyebrow}
+                </span>
+              </Link>
               <div className="rounded border border-arena-border bg-arena-panel px-3 py-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>

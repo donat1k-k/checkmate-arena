@@ -158,6 +158,13 @@ export function purchaseArenaStoreItem(itemId: string): {
   };
 }
 
+export function addArenaCoins(amount: number): number {
+  const state = readState();
+  const nextState = { ...state, balance: state.balance + Math.max(0, Math.round(amount)) };
+  saveState(nextState);
+  return nextState.balance;
+}
+
 export function resetArenaEconomy(): void {
   if (!canUseStorage()) return;
   window.localStorage.removeItem(ECONOMY_KEY);

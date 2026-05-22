@@ -255,6 +255,16 @@ export default function HomePage() {
                       <div className="text-[10px] opacity-75">{t.play.localRanked}</div>
                     </div>
                   </Link>
+                  <Link
+                    href="/blitz"
+                    className="flex items-center gap-3 rounded-lg border border-arena-border bg-arena-panel px-4 py-3 hover:bg-arena-elevated transition-colors"
+                  >
+                    <span className="text-lg">⚡</span>
+                    <div>
+                      <div className="text-sm font-semibold">{t.blitz.title}</div>
+                      <div className="text-[10px] text-arena-muted">{t.blitz.eyebrow}</div>
+                    </div>
+                  </Link>
                   {matches.length > 0 && (
                     <Link
                       href={`/review/${matches[0]?.id}`}

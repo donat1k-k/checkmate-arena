@@ -41,6 +41,9 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
             <Link href="/" className={navLinkClass(pathname, "/")}>
               {t.common.home}
             </Link>
+            <Link href="/blitz" className={navLinkClass(pathname, "/blitz")}>
+              {t.common.blitz}
+            </Link>
             <Link href="/profile" className={navLinkClass(pathname, "/profile")}>
               {t.common.profile}
             </Link>
@@ -93,6 +96,13 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
                   className={`${navLinkClass(pathname, "/")} block py-2`}
                 >
                   {t.common.home}
+                </Link>
+                <Link
+                  href="/blitz"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`${navLinkClass(pathname, "/blitz")} block py-2`}
+                >
+                  {t.common.blitz}
                 </Link>
                 <Link
                   href="/profile"

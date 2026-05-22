@@ -415,3 +415,38 @@ SiteShell теперь использует `usePathname()` и передаёт 
   не добавлялись.
 - Supabase schema не менялась. Реальный entitlement/economy/social backend
   остаётся после отдельного spec.
+
+
+## 2026-05-22 — Stage 8.1B: Blitz Mate Rush architecture
+
+### Puzzle storage
+- 10 puzzles хардкодены в `lib/demo/blitz.ts` как static array (без API, без
+  Stockfish, без backend). Решение: минимальные зависимости, offline-first,
+  соответствует профилю прото-продукта.
+- Каждый паззль имеет FEN, solution SAN, difficulty, timeLimitSeconds,
+  rewardCoins, explanation EN/RU. Ход валидируется chess.js — проверяется
+  совпадение SAN после `normalizeSan()` (strip `+#!?`).
+
+### Stats localStorage
+- `checkmate-arena.blitz-stats.v1` — отдельный ключ, не пересекается с
+  economy или progress. Сбрасывается reset local product data в Settings.
+- Blitz stats (solved, streak, bestStreak, coinsEarned, accuracy) — session-local,
+  в Supabase не пишутся. Supabase schema не менялась.
+
+### Hint system
+- Free tier: 1 hint per session (hintUsedThisSession в localStorage).
+- Pro tier: unlimited (teaser locked, не реализован как entitlement).
+- Hint не спойлерит решение — показывает piece type + from-square из
+  chess.js verbose moves.
+
+### Pro Rush
+- 4-й difficulty locked (disabled UI + teaser). Реальный unlock — после
+  entitlement backend (не на этом этапе).
+
+### AC reward
+- Coins начисляются через `addArenaCoins()` при решении паззля.
+  Повторное решение уже решённого паззля — AC не начисляются (solvedIds check).
+
+### Границы
+- Supabase schema не менялась.
+- Настоящий мультиплеер, Stockfish, WebSockets, Stripe — не добавлялись.

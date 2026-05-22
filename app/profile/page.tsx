@@ -10,6 +10,7 @@ import {
 } from "@/lib/demo/customization";
 import { loadArenaCoinsBalance } from "@/lib/demo/economy";
 import { loadProTrialGamesLeft } from "@/lib/demo/retention";
+import { getAccuracy, loadBlitzStats, type BlitzStats } from "@/lib/demo/blitz";
 import {
   getGamesPlayed,
   getOpponentDisplayName,
@@ -177,7 +178,7 @@ function EloGraph({
 }) {
   if (points.length < 2) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-arena-border bg-arena-elevated/60 px-4 text-center text-sm text-arena-muted">
+      <div className="flex h-24 items-center justify-center rounded-md border border-dashed border-arena-border bg-arena-elevated/60 px-4 text-center text-sm text-arena-muted">
         {empty}
       </div>
     );
@@ -199,7 +200,7 @@ function EloGraph({
       <svg
         viewBox="0 0 100 100"
         role="img"
-        className="h-36 w-full overflow-visible"
+        className="h-24 w-full overflow-visible"
         preserveAspectRatio="none"
       >
         <path d="M0 20H100 M0 56H100 M0 92H100" stroke="var(--color-arena-border)" strokeWidth="0.6" />
@@ -209,7 +210,7 @@ function EloGraph({
           stroke="var(--color-arena-blue)"
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeWidth="2.2"
+          strokeWidth="1.5"
         />
         {points.map((rating, index) => {
           const x = (index / (points.length - 1)) * 100;
@@ -219,10 +220,10 @@ function EloGraph({
               key={`${rating}-${index}`}
               cx={x}
               cy={y}
-              r="1.8"
+              r="1.2"
               fill="var(--color-arena-panel)"
               stroke="var(--color-arena-blue)"
-              strokeWidth="1"
+              strokeWidth="0.8"
             />
           );
         })}
@@ -247,12 +248,14 @@ export default function ProfilePage() {
   const [customization, setCustomization] = useState<ProfileCustomization>(
     loadProfileCustomization(),
   );
+  const [blitzStats, setBlitzStats] = useState<BlitzStats | null>(null);
 
   useEffect(() => {
     let active = true;
     setArenaCoins(loadArenaCoinsBalance());
     setTrialGamesLeft(loadProTrialGamesLeft());
     setCustomization(loadProfileCustomization());
+    setBlitzStats(loadBlitzStats());
 
     async function loadProfilePage() {
       const supabase = createClient();
@@ -658,6 +661,33 @@ export default function ProfilePage() {
           </div>
         </article>
       </section>
+
+      {blitzStats && blitzStats.attempts > 0 && (
+        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+              {t.blitz.eyebrow}
+            </p>
+            <Link href="/blitz" className="text-xs text-arena-blue hover:underline">
+              {t.blitz.title} →
+            </Link>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {[
+              { label: t.blitz.statSolved, value: blitzStats.solved },
+              { label: t.blitz.statStreak, value: blitzStats.streak },
+              { label: t.blitz.statBestStreak, value: blitzStats.bestStreak },
+              { label: t.blitz.statCoins, value: `${blitzStats.coinsEarned} AC` },
+              { label: t.blitz.statAccuracy, value: `${getAccuracy(blitzStats)}%` },
+            ].map((s) => (
+              <div key={s.label} className="rounded bg-arena-elevated px-3 py-2">
+                <p className="font-mono text-sm font-bold">{s.value}</p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-wide text-arena-muted">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-lg border border-arena-border bg-arena-panel">
         <div className="flex flex-col gap-1 border-b border-arena-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
