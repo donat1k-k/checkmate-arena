@@ -338,6 +338,20 @@ export const translations = {
       boundary: "No engine evaluation or API analysis runs in this local MVP review.",
       accountBoundary:
         "This saved account review is still heuristic. No engine evaluation or API analysis runs here.",
+      aiCoach: {
+        eyebrow: "AI Coach",
+        generateBtn: "Generate AI Coach",
+        generating: "Generating analysis...",
+        notConfigured:
+          "AI Coach is not configured in this environment. Add AI_COACH_API_BASE_URL, AI_COACH_API_KEY and AI_COACH_MODEL to enable it.",
+        error:
+          "AI analysis is unavailable right now. The demo review above is your fallback.",
+        mainMistake: "Key moment",
+        bestAlternative: "Better plan",
+        whyImportant: "Why it matters",
+        trainNext: "Train next",
+        note: "AI analysis · No engine evaluation",
+      },
       coach: {
         resultSignalTitle: "Result signal",
         resultSignalBody: ({ result, finish, moveCount }: ResultSignalArgs) =>
@@ -716,6 +730,20 @@ export const translations = {
       boundary: "В этом локальном MVP-разборе нет engine evaluation и API-анализа.",
       accountBoundary:
         "Этот сохранённый разбор аккаунта всё ещё эвристический: engine evaluation и API-анализ здесь не запускаются.",
+      aiCoach: {
+        eyebrow: "AI Coach",
+        generateBtn: "AI-разбор",
+        generating: "Генерируем анализ...",
+        notConfigured:
+          "AI Coach не настроен в этой среде. Добавьте AI_COACH_API_BASE_URL, AI_COACH_API_KEY и AI_COACH_MODEL, чтобы включить его.",
+        error:
+          "AI-анализ сейчас недоступен. Выше показан demo-разбор как запасной вариант.",
+        mainMistake: "Ключевой момент",
+        bestAlternative: "Лучший план",
+        whyImportant: "Почему важно",
+        trainNext: "Что тренировать",
+        note: "AI-анализ · Без engine evaluation",
+      },
       coach: {
         resultSignalTitle: "Сигнал результата",
         resultSignalBody: ({ result, finish, moveCount }: ResultSignalArgs) =>

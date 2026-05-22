@@ -451,5 +451,58 @@ QA + точечный hardening без нового этапа.
 - Войти / выйти из Supabase-аккаунта: session cookie refresh по-прежнему работает через `proxy.ts`.
 - Переключить тему и язык в `/settings` — убедиться, что изменения применяются мгновенно.
 
-## Следующий этап
-Stage 4+ — пока не определён. Realtime и multiplayer rooms не начинались.
+## Этап 4.0A — AI Coach API foundation. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. Новые env-переменные (`/env.example`)**
+- `AI_COACH_API_BASE_URL` — base URL провайдера (без `/chat/completions`).
+- `AI_COACH_API_KEY` — секретный ключ. SERVER-ONLY: нет `NEXT_PUBLIC_`.
+- `AI_COACH_MODEL` — модель (gpt-4o-mini, claude-haiku-4-5 через OpenRouter и т.д.).
+- Если хотя бы один ключ отсутствует — route возвращает `{ available: false, reason: "not_configured" }`.
+
+**2. Prompt builder (`lib/ai/coachPrompt.ts`)**
+- Принимает `result`, `finish`, `playerColor`, `moves[]`, `moveCount`, `ratingDelta`, `locale`.
+- Двуязычный system prompt (RU/EN) с явным запретом на выдумывание engine-оценок.
+- Просит у AI JSON с четырьмя полями: `mainMistake`, `bestAlternative`, `whyImportant`, `trainNext`.
+
+**3. Server route (`app/api/coach/route.ts`)**
+- `POST /api/coach` — принимает игровые данные, вызывает OpenAI-compatible API.
+- API key в браузер не уходит (route — server-only Next.js handler).
+- Устойчивость: markdown-fence stripping при попытке разбора JSON, проверка полей.
+- Все ошибки (env, network, parse, incomplete) → `{ available: false, reason }` без raw exception.
+
+**4. Обновлена страница `/review/[matchId]`**
+- Новая секция «AI Coach» в конце review-страницы.
+- Кнопка «AI-разбор» / «Generate AI Coach» запускает `POST /api/coach`.
+- Состояния: loading (анимированный текст), error (not_configured / unavailable), result (4 карточки).
+- Если AI недоступен — demo heuristic coach выше остаётся как полноценный fallback.
+- Guest review и account review не сломаны — оба пути поддерживают новую секцию.
+- AI result НЕ сохраняется в Supabase на этом этапе.
+
+**5. i18n**
+- Добавлен namespace `review.aiCoach` (RU/EN): кнопка, loading, notConfigured, error,
+  заголовки карточек, note.
+
+### Boundaries
+- Stockfish, engine eval, schema changes, Supabase save — не делались.
+- Chess engine и multiplayer — не менялись.
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK.
+
+### Что проверить вручную
+1. **Без AI env** (только Supabase настроен): открыть `/review/[matchId]`, нажать кнопку
+   «AI-разбор» → должен появиться текст `notConfigured`, demo review выше не пропадает.
+2. **С AI env**: нажать кнопку → loading → 4 карточки с реальным анализом.
+3. **Guest review**: завершить матч гостем, открыть review → кнопка AI Coach присутствует.
+4. **Account review**: войти, завершить матч, перезагрузить review-страницу → кнопка
+   AI Coach присутствует (AI result сбрасывается при перезагрузке — это ожидаемо на 4.0A).
+5. Переключить RU/EN и убедиться, что кнопка и сообщения об ошибках переключаются.
+
+### Что будет Stage 4.0B
+- Сохранение AI review в `match_reviews` (новые поля или отдельная колонка `ai_analysis jsonb`).
+- Показ сохранённого AI review при повторном открытии без повторного запроса.
+- Опционально: индикатор стоимости / модели в UI.
+- Опционально: streaming ответа через ReadableStream для более быстрого UX.

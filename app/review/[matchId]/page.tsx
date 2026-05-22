@@ -24,6 +24,14 @@ import {
   loadAccountReview,
   type AccountReview,
 } from "@/lib/supabase/reviews";
+import type { CoachApiResponse } from "@/app/api/coach/route";
+
+type AiCoachResult = {
+  mainMistake: string;
+  bestAlternative: string;
+  whyImportant: string;
+  trainNext: string;
+};
 
 function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -90,6 +98,9 @@ export default function ReviewPage() {
   const [localMatch, setLocalMatch] = useState<LocalMatch | null>(null);
   const [accountMatch, setAccountMatch] = useState<AccountMatch | null>(null);
   const [accountReview, setAccountReview] = useState<AccountReview | null>(null);
+  const [aiCoach, setAiCoach] = useState<AiCoachResult | null>(null);
+  const [aiCoachLoading, setAiCoachLoading] = useState(false);
+  const [aiCoachError, setAiCoachError] = useState<"not_configured" | "unavailable" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -130,6 +141,55 @@ export default function ReviewPage() {
       active = false;
     };
   }, [matchId]);
+
+  async function handleGenerateAiCoach(
+    currentMatch: LocalMatch | AccountMatch,
+    currentLocalMatch: LocalMatch | null,
+    currentAccountMatch: AccountMatch | null,
+  ) {
+    setAiCoachLoading(true);
+    setAiCoachError(null);
+    setAiCoach(null);
+
+    const finish: MatchFinish = currentLocalMatch
+      ? currentLocalMatch.finish
+      : accountCoachFinish(currentAccountMatch!);
+
+    try {
+      const res = await fetch("/api/coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          result: currentMatch.result,
+          finish,
+          playerColor: currentMatch.playerColor,
+          moves: currentMatch.sanMoves,
+          moveCount: currentMatch.moveCount,
+          ratingDelta: currentMatch.ratingDelta,
+          locale,
+        }),
+      });
+
+      const data = (await res.json()) as CoachApiResponse;
+
+      if (data.available) {
+        setAiCoach({
+          mainMistake: data.mainMistake,
+          bestAlternative: data.bestAlternative,
+          whyImportant: data.whyImportant,
+          trainNext: data.trainNext,
+        });
+      } else {
+        setAiCoachError(
+          data.reason === "not_configured" ? "not_configured" : "unavailable",
+        );
+      }
+    } catch {
+      setAiCoachError("unavailable");
+    } finally {
+      setAiCoachLoading(false);
+    }
+  }
 
   if (!loaded) {
     return <p className="py-10 text-sm text-arena-muted">{t.review.loading}</p>;
@@ -301,6 +361,76 @@ export default function ReviewPage() {
             {isAccount ? t.review.accountBoundary : t.review.boundary}
           </p>
         </div>
+      </section>
+
+      <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-arena-gold">
+              {t.review.aiCoach.eyebrow}
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold">
+              {t.review.aiCoach.eyebrow}
+            </h2>
+          </div>
+          {!aiCoach && !aiCoachLoading && (
+            <button
+              onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
+              className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90 disabled:opacity-50"
+              disabled={aiCoachLoading}
+            >
+              {t.review.aiCoach.generateBtn}
+            </button>
+          )}
+        </div>
+
+        {aiCoachLoading && (
+          <p className="mt-4 text-sm text-arena-muted animate-pulse">
+            {t.review.aiCoach.generating}
+          </p>
+        )}
+
+        {aiCoachError === "not_configured" && (
+          <p className="mt-4 text-sm text-arena-muted">
+            {t.review.aiCoach.notConfigured}
+          </p>
+        )}
+
+        {aiCoachError === "unavailable" && (
+          <p className="mt-4 text-sm text-arena-muted">
+            {t.review.aiCoach.error}
+          </p>
+        )}
+
+        {aiCoach && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+              <p className="text-xs text-arena-muted">{t.review.aiCoach.mainMistake}</p>
+              <p className="mt-1 text-sm">{aiCoach.mainMistake}</p>
+            </div>
+            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+              <p className="text-xs text-arena-muted">{t.review.aiCoach.bestAlternative}</p>
+              <p className="mt-1 text-sm font-mono">{aiCoach.bestAlternative}</p>
+            </div>
+            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+              <p className="text-xs text-arena-muted">{t.review.aiCoach.whyImportant}</p>
+              <p className="mt-1 text-sm">{aiCoach.whyImportant}</p>
+            </div>
+            <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+              <p className="text-xs text-arena-muted">{t.review.aiCoach.trainNext}</p>
+              <p className="mt-1 text-sm">{aiCoach.trainNext}</p>
+            </div>
+            <p className="sm:col-span-2 text-xs text-arena-muted">
+              {t.review.aiCoach.note}
+            </p>
+          </div>
+        )}
+
+        {!aiCoach && !aiCoachLoading && !aiCoachError && (
+          <p className="mt-3 text-sm text-arena-muted">
+            {t.review.boundary}
+          </p>
+        )}
       </section>
     </div>
   );
