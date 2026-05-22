@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import ReplayBoard from "@/components/chess/ReplayBoard";
@@ -37,6 +37,9 @@ function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+// Schema has no finish_reason column yet — draws are stored as "draw" status
+// without distinguishing stalemate/insufficient/threefold/fifty-move.
+// Using "stalemate" as a placeholder for all draws until Schema V2 migration.
 function accountCoachFinish(match: AccountMatch): MatchFinish {
   if (match.status === "resigned") return "resignation";
   if (match.result === "draw") return "stalemate";
@@ -503,6 +506,15 @@ export default function ReviewPage() {
     }
   }
 
+  const handlePlyChange = useCallback(
+    (ply: number, san: string | null, fen: string) => {
+      setSelectedPly(ply);
+      setSelectedSan(san);
+      setSelectedFen(fen);
+    },
+    [],
+  );
+
   const match = localMatch ?? accountMatch;
 
   const replayPositions = useMemo(() => {
@@ -653,11 +665,7 @@ export default function ReviewPage() {
                 keyMoveComment={aiCoach?.keyMoveComment}
                 jumpToPly={jumpToPly}
                 onJumpApplied={() => setJumpToPly(undefined)}
-                onPlyChange={(ply, san, fen) => {
-                  setSelectedPly(ply);
-                  setSelectedSan(san);
-                  setSelectedFen(fen);
-                }}
+                onPlyChange={handlePlyChange}
               />
             </section>
           )}
