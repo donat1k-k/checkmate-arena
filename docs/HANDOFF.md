@@ -634,3 +634,72 @@ QA + точечный hardening без нового этапа.
   чтобы результат AI Coach не пропадал при перезагрузке review страницы.
 - 4.2 (опционально): Server-side active game sync для account — Supabase row
   `matches.status = 'active'` + resume по account на другом браузере.
+
+## Этап 4.2 — MVP polish + QA pass. Статус: завершён (2026-05-22)
+
+### Что проверено
+
+- `/play`: autosave/restore, New Game очищает draft, Resign очищает draft,
+  guest/account flow разделены, profile error state, баннер восстановления.
+- `/review/[matchId]`: guest и account load paths, empty/error state, AI Coach
+  кнопка без env (not_configured), loading/error/result состояния.
+- `/profile`: account/guest разделение, empty state, history, error state.
+- `/leaderboard`: Supabase board без авторизации (isYou только при сессии),
+  fallback на demo/local, guest hint logic.
+- `/settings`: i18n и тема пробросаны через PreferencesProvider/localStorage.
+- Весь i18n RU/EN: проверены ключи, переводы, copy.
+
+### Найденные баги
+
+1. **AI Coach секция `/review`**: `<h2>` дублировал `<p>` — оба рендерили
+   `t.review.aiCoach.eyebrow` ("AI Coach" / "AI Coach"). Без смыслового заголовка.
+2. **AI Coach placeholder `/review`**: "No engine evaluation…" — всегда брался
+   guest-текст `t.review.boundary`, даже для account match.
+3. **Known limitation (не fix)**: `accountCoachFinish` возвращает `"stalemate"`
+   для всех draw-финишей (insufficient/threefold/fifty-move), потому что
+   `databaseStatus` сохраняет их все как `"draw"`. Исправить без schema-изменений
+   невозможно.
+
+### Что изменено
+
+- `lib/i18n/translations.ts` — добавлен ключ `review.aiCoach.title` (EN: "Deep game
+  analysis", RU: "Глубокий анализ") в оба словаря.
+- `app/review/[matchId]/page.tsx` — `<h2>` в AI Coach секции теперь использует
+  `t.review.aiCoach.title` вместо `eyebrow`; placeholder boundary text выбирается
+  по `isAccount ? t.review.accountBoundary : t.review.boundary`.
+
+### Файлы
+
+- `lib/i18n/translations.ts`
+- `app/review/[matchId]/page.tsx`
+
+### Команды
+
+- `npm run build` — OK (13 routes, TypeScript OK).
+- `git diff --check` — OK.
+- Browser tool недоступен для localhost — см. ручной чеклист ниже.
+
+### Что проверить вручную
+
+1. `/play` → 2-3 хода → F5 → партия восстановилась, синий баннер "Game restored".
+2. New Game → F5 → чистая позиция, баннера нет.
+3. Resign → review link появился, `/review` открывается.
+4. `/review/[matchId]` → кнопка "AI-разбор" → при отсутствии AI env показывает
+   "not configured", а не краш; demo review выше остаётся.
+5. `/review/[matchId]` → заголовок AI Coach секции — "Deep game analysis" (EN)
+   или "Глубокий анализ" (RU), больше не "AI Coach / AI Coach".
+6. `/profile` → аккаунт без матчей → понятный empty state.
+7. `/leaderboard` → sign out → глобальный board без "You" метки.
+8. `/settings` → RU/Dark → F5 → preferences восстановились.
+
+### Известные ограничения, не исправленные в 4.2
+
+- `accountCoachFinish` → все ничьи = "Stalemate" в review finish label.
+  Требует schema `finish_reason` колонку — вне области 4.2.
+- AI Coach result не персистится в Supabase (задача 4.0B).
+
+### Следующий логичный этап
+
+**4.0B — AI Coach persistence**: добавить колонку `ai_analysis jsonb` в
+`match_reviews`, сохранять AI result при генерации, показывать сохранённый
+анализ при повторном открытии `/review/[matchId]` без повторного запроса.

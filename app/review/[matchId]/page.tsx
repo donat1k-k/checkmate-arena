@@ -370,7 +370,7 @@ export default function ReviewPage() {
               {t.review.aiCoach.eyebrow}
             </p>
             <h2 className="mt-1 text-2xl font-semibold">
-              {t.review.aiCoach.eyebrow}
+              {t.review.aiCoach.title}
             </h2>
           </div>
           {!aiCoach && !aiCoachLoading && (
@@ -428,7 +428,7 @@ export default function ReviewPage() {
 
         {!aiCoach && !aiCoachLoading && !aiCoachError && (
           <p className="mt-3 text-sm text-arena-muted">
-            {t.review.boundary}
+            {isAccount ? t.review.accountBoundary : t.review.boundary}
           </p>
         )}
       </section>

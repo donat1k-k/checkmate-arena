@@ -342,6 +342,7 @@ export const translations = {
         "This saved account review is still heuristic. No engine evaluation or API analysis runs here.",
       aiCoach: {
         eyebrow: "AI Coach",
+        title: "Deep game analysis",
         generateBtn: "Generate AI Coach",
         generating: "Generating analysis...",
         notConfigured:
@@ -736,6 +737,7 @@ export const translations = {
         "Этот сохранённый разбор аккаунта всё ещё эвристический: engine evaluation и API-анализ здесь не запускаются.",
       aiCoach: {
         eyebrow: "AI Coach",
+        title: "Глубокий анализ",
         generateBtn: "AI-разбор",
         generating: "Генерируем анализ...",
         notConfigured:
