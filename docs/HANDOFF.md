@@ -552,3 +552,85 @@ QA + точечный hardening без нового этапа.
 4. `.env.local` не попал в image: `docker run checkmate-arena ls -la | grep env` — пусто.
 5. `node_modules` и `.next` не попали в Docker context (проверить вывод `docker build`
    на строки `COPY . .` — не должно быть лишних файлов из `.dockerignore`).
+
+## Этап 4.1 — Active game autosave / resume. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. `lib/chess/engine.ts` — PGN getter + static factory**
+- `get pgn(): string` — возвращает текущий PGN через `chess.js`.
+- `static loadFromPgn(pgn: string): ChessGame` — создаёт экземпляр из PGN.
+  Восстанавливает полную историю ходов (включая повторения для threefold,
+  правило 50 ходов) — FEN этого не сохраняет.
+
+**2. `lib/demo/progress.ts` — autosave helpers**
+- `ACTIVE_GAME_KEY = "checkmate-arena.active-game.v1"` — отдельный localStorage ключ.
+- `ActiveGameDraft { pgn, matchId, createdAt, savedAt, profileId }` — структура черновика.
+- `saveActiveGame()`, `loadActiveGame()`, `clearActiveGame()` — сохранение, чтение, очистка.
+- `profileId` привязывает черновик к конкретному профилю: guest и account не перепутаются.
+
+**3. `lib/i18n/translations.ts` — новые строки**
+- `play.gameRestored` — "Game restored" / "Партия восстановлена".
+- `play.gameRestoredHint` — "Your active game was restored after page reload." / RU аналог.
+
+**4. `app/play/page.tsx` — интеграция autosave**
+- `gameRestored: boolean` state — управляет баннером.
+- **Restore effect** (deps: `[profileLoaded, profile?.id]`): запускается один раз после
+  загрузки профиля; проверяет черновик, восстанавливает `ChessGame` из PGN, устанавливает
+  `matchIdRef` и `matchCreatedAtRef` из черновика. Если восстановленная партия уже завершена
+  (chess.js state) или PGN невалиден — черновик очищается.
+- **`persistActiveGame()`**: сохраняет активный черновик; вызывается в `applyMove()` и
+  `choosePromotion()` после каждого успешного хода.
+- **Очистка черновика**:
+  - `resign()` — сразу при сдаче.
+  - `reset()` — перед новой партией.
+  - guest save effect — перед `setCompletedMatch()`.
+  - account save effect — перед `setCompletedMatch()` (только при успехе).
+- **Баннер** "Game restored" — отображается в aside панели, исчезает при New Game.
+
+### Границы этапа
+- Только localStorage: нет server sync, нет Supabase, нет realtime.
+- Guest и account одинаково: черновик привязан к `profile.id`.
+- Нет кросс-браузерной синхронизации (не планировалось).
+- Chess engine минимально расширен (`pgn` getter + `loadFromPgn`) — логика не менялась.
+
+### Команды и проверки
+- `npm run build` — OK (все 13 routes, TypeScript OK).
+- `git diff --check` — OK (только LF→CRLF warnings, стандарт для этого репо).
+- Browser tool (localhost) недоступен в Claude окружении — см. ручные шаги ниже.
+
+### Что проверить вручную
+
+**Базовый сценарий:**
+1. `npm run dev` → открыть `http://localhost:3000/play`.
+2. Задать guest nickname → войти.
+3. Сделать 2–3 хода.
+4. Обновить страницу (`F5` или перезагрузить).
+5. Ожидание: позиция восстановлена, список ходов на месте, в aside — синий баннер
+   "Game restored".
+
+**New Game очищает черновик:**
+6. После восстановления нажать "New Game" / "Новая партия".
+7. Ожидание: доска сбрасывается, баннер исчезает.
+8. Обновить страницу → чистая начальная позиция, баннера нет.
+
+**Завершение партии очищает черновик:**
+9. Сыграть до конца (resign или мат).
+10. Дождаться result block (savedResult / savePending).
+11. Обновить страницу → чистая начальная позиция, баннера нет.
+12. Убедиться, что Review и Profile history продолжают работать как раньше.
+
+**Account flow:**
+13. Войти в аккаунт → `/play` → сделать ходы → обновить страницу.
+14. Ожидание: то же восстановление. `profile.id` совпадает → черновик читается.
+15. Завершить партию → result сохранён в Supabase → черновик очищен → reload чист.
+
+**Edge case: смена профиля:**
+16. Guest сыграл несколько ходов (черновик есть).
+17. Войти в аккаунт → `/play` → баннера нет (profileId гостя ≠ account id).
+
+### Что будет следующим этапом (4.0B / 4.2)
+- 4.0B: Сохранение AI review в `match_reviews` (новая jsonb колонка `ai_analysis`),
+  чтобы результат AI Coach не пропадал при перезагрузке review страницы.
+- 4.2 (опционально): Server-side active game sync для account — Supabase row
+  `matches.status = 'active'` + resume по account на другом браузере.

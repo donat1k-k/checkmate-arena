@@ -40,6 +40,10 @@ export class ChessGame {
     return this.chess.history({ verbose: true });
   }
 
+  get pgn(): string {
+    return this.chess.pgn();
+  }
+
   /** Squares the piece on `from` may legally move to. */
   legalTargets(from: Square): Square[] {
     return this.chess.moves({ square: from, verbose: true }).map((m) => m.to);
@@ -86,6 +90,12 @@ export class ChessGame {
       }
     }
     return null;
+  }
+
+  static loadFromPgn(pgn: string): ChessGame {
+    const instance = new ChessGame();
+    instance.chess.loadPgn(pgn);
+    return instance;
   }
 
   status(): GameStatus {

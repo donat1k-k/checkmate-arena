@@ -3,6 +3,7 @@ import type { GameOutcome } from "@/lib/chess/engine";
 
 const PROFILE_KEY = "checkmate-arena.guest-profile.v1";
 const MATCHES_KEY = "checkmate-arena.local-matches.v1";
+const ACTIVE_GAME_KEY = "checkmate-arena.active-game.v1";
 const DEFAULT_RATING = 1000;
 const LOCAL_RIVAL_OPPONENT_ID = "local-rival";
 const LEGACY_LOCAL_RIVAL_NICKNAME = "Local Rival";
@@ -304,4 +305,39 @@ export function formatFinish(finish: MatchFinish): string {
     case "fifty-move":
       return "Fifty-move rule";
   }
+}
+
+export type ActiveGameDraft = {
+  pgn: string;
+  matchId: string;
+  createdAt: string;
+  savedAt: string;
+  profileId: string;
+};
+
+function isActiveDraft(value: unknown): value is ActiveGameDraft {
+  if (!value || typeof value !== "object") return false;
+  const d = value as Partial<ActiveGameDraft>;
+  return (
+    typeof d.pgn === "string" &&
+    typeof d.matchId === "string" &&
+    typeof d.createdAt === "string" &&
+    typeof d.savedAt === "string" &&
+    typeof d.profileId === "string"
+  );
+}
+
+export function saveActiveGame(draft: ActiveGameDraft): void {
+  if (!canUseStorage()) return;
+  window.localStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify(draft));
+}
+
+export function loadActiveGame(): ActiveGameDraft | null {
+  const value = readStoredJson(ACTIVE_GAME_KEY);
+  return isActiveDraft(value) ? value : null;
+}
+
+export function clearActiveGame(): void {
+  if (!canUseStorage()) return;
+  window.localStorage.removeItem(ACTIVE_GAME_KEY);
 }

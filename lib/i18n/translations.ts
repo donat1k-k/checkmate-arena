@@ -217,6 +217,8 @@ export const translations = {
         "We could not load the account profile for this arena session. Try again before starting a saved match.",
       resign: "Resign",
       newGame: "New Game",
+      gameRestored: "Game restored",
+      gameRestoredHint: "Your active game was restored after page reload.",
     },
     chess: {
       promoteTo: "Promote to:",
@@ -610,6 +612,8 @@ export const translations = {
         "Не удалось загрузить профиль аккаунта для этой сессии арены. Попробуйте снова перед сохранённым матчем.",
       resign: "Сдаться",
       newGame: "Новая партия",
+      gameRestored: "Партия восстановлена",
+      gameRestoredHint: "Активная партия восстановлена после перезагрузки.",
     },
     chess: {
       promoteTo: "Превратить в:",

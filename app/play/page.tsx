@@ -8,12 +8,15 @@ import MoveList from "@/components/chess/MoveList";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import { ChessGame, type GameStatus, type PromotionPiece } from "@/lib/chess/engine";
 import {
+  clearActiveGame,
   createGuestProfile,
   createLocalId,
   getRatingLevel,
+  loadActiveGame,
   loadGuestProfile,
   recordCompletedMatch,
   sanitizeNickname,
+  saveActiveGame,
   saveGuestProfile,
   type GuestProfile,
   type LocalMatch,
@@ -85,6 +88,7 @@ export default function PlayPage() {
   const [completedMatch, setCompletedMatch] = useState<
     CompletedAccountMatch | LocalMatch | null
   >(null);
+  const [gameRestored, setGameRestored] = useState(false);
 
   const game = gameRef.current;
   const status = game.status();
@@ -141,6 +145,30 @@ export default function PlayPage() {
     };
   }, []);
 
+  // Restore active game after profile loads (both guest and account).
+  useEffect(() => {
+    if (!profileLoaded || !profile) return;
+
+    const draft = loadActiveGame();
+    if (!draft || draft.profileId !== profile.id) return;
+
+    try {
+      const restoredGame = ChessGame.loadFromPgn(draft.pgn);
+      if (restoredGame.isGameOver()) {
+        clearActiveGame();
+        return;
+      }
+      gameRef.current = restoredGame;
+      matchIdRef.current = draft.matchId;
+      matchCreatedAtRef.current = draft.createdAt;
+      setGameRestored(true);
+      forceUpdate();
+    } catch {
+      clearActiveGame();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileLoaded, profile?.id]);
+
   useEffect(() => {
     if (!profile || !gameOver || completedMatch) return;
 
@@ -160,6 +188,7 @@ export default function PlayPage() {
         ...matchInput,
       });
 
+      clearActiveGame();
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
       return;
@@ -189,6 +218,7 @@ export default function PlayPage() {
         return;
       }
 
+      clearActiveGame();
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
       setSavePending(false);
@@ -204,6 +234,7 @@ export default function PlayPage() {
   }, [completedMatch, game, gameOver, locale, profile, profileKind]);
 
   function reset() {
+    clearActiveGame();
     gameRef.current = new ChessGame();
     matchIdRef.current = createLocalId("match");
     matchCreatedAtRef.current = new Date().toISOString();
@@ -213,6 +244,7 @@ export default function PlayPage() {
     setCompletedMatch(null);
     setSaveError(false);
     setSavePending(false);
+    setGameRestored(false);
     forceUpdate();
   }
 
@@ -232,6 +264,17 @@ export default function PlayPage() {
     setNicknameError("");
   }
 
+  function persistActiveGame() {
+    if (!profile) return;
+    saveActiveGame({
+      pgn: game.pgn,
+      matchId: matchIdRef.current,
+      createdAt: matchCreatedAtRef.current,
+      savedAt: new Date().toISOString(),
+      profileId: profile.id,
+    });
+  }
+
   /** Apply a move; returns true when the board position changed. */
   function applyMove(from: Square, to: Square): boolean {
     if (game.isPromotion(from, to)) {
@@ -241,6 +284,7 @@ export default function PlayPage() {
     }
     const result = game.move(from, to);
     if (result.ok) {
+      persistActiveGame();
       setSelected(null);
       forceUpdate();
       return true;
@@ -268,12 +312,16 @@ export default function PlayPage() {
     if (!promotion) return;
     const result = game.move(promotion.from, promotion.to, piece);
     setPromotion(null);
-    if (result.ok) forceUpdate();
+    if (result.ok) {
+      persistActiveGame();
+      forceUpdate();
+    }
   }
 
   function resign() {
     if (gameOver) return;
     game.resign(game.turn);
+    clearActiveGame();
     setSelected(null);
     forceUpdate();
   }
@@ -531,6 +579,13 @@ export default function PlayPage() {
           {saveError && (
             <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-loss">
               {t.errors.saveFailed}
+            </section>
+          )}
+
+          {gameRestored && (
+            <section className="rounded-lg border border-arena-blue bg-arena-panel p-3">
+              <p className="text-sm font-medium text-arena-blue">{t.play.gameRestored}</p>
+              <p className="text-xs text-arena-muted">{t.play.gameRestoredHint}</p>
             </section>
           )}
 
