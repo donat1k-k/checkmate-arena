@@ -168,4 +168,5 @@ export function addArenaCoins(amount: number): number {
 export function resetArenaEconomy(): void {
   if (!canUseStorage()) return;
   window.localStorage.removeItem(ECONOMY_KEY);
+  window.localStorage.removeItem("checkmate-arena.equipped-cosmetics.v1");
 }

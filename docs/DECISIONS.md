@@ -450,3 +450,46 @@ SiteShell теперь использует `usePathname()` и передаёт 
 ### Границы
 - Supabase schema не менялась.
 - Настоящий мультиплеер, Stockfish, WebSockets, Stripe — не добавлялись.
+
+## 2026-05-23 — Stage 8.1C: Cosmetics Equip + Premium Profile + Blitz UX
+
+### Cosmetic equip layer
+- `lib/demo/cosmetics.ts` — localStorage prototype для active cosmetics
+  (`frame`, `board`, `coach`, `title`). Хранится отдельно от economy и
+  customization. `equipCosmetic(category, itemId | null)` переключает активный
+  предмет, `null` снимает.
+- Только owned items (ownedItemIds) можно экипировать; Pro/Ultra locked items
+  недоступны без реального entitlement.
+- `resetArenaEconomy()` теперь чистит и equipped cosmetics
+  (`checkmate-arena.equipped-cosmetics.v1`).
+
+### Clan tag presets
+- Добавлены пресеты `["", "NVS", "ALM", "TACT", "MATE", "RUSH"]` в
+  `lib/demo/customization.ts` (константа `CLAN_TAG_PRESETS`).
+- Поле остаётся string-based для backward compat; settings предлагают пресеты.
+- Join/Create clan — coming soon / Pro/Ultra shell.
+
+### Premium analytics shell
+- `/profile` показывает 6 locked-блоков (blurred preview + overlay):
+  Detailed stats, Opening tendencies, Blunder heatmap, Endgame conversion,
+  Player evolution, Pattern analysis. Нет аналитики, нет AI-вызовов.
+- `/leaderboard` и `/profile` показывают scouting teaser (disabled button).
+
+### Blitz interaction upgrade
+- Click-to-move реализован через `selectedSquare` + `legalTargets` (Set<Square>).
+- legal move dots через `squareStyles` (amber radial gradient).
+- `currentFen` state позволяет показывать позицию после хода (верного или нет).
+- Неверный ход: позиция обновляется + красная подсветка from/to + кнопка Reset.
+- Верный ход: позиция обновляется + success state.
+- Drag-to-move работает через `handlePieceDrop`.
+
+### Blitz puzzle dataset
+- Расширен с 10 до 22 позиций (Easy ×6, Medium ×6, Hard ×6 + bp9–bp10 hard).
+  Все позиции валидны для chess.js.
+
+### Границы
+- Supabase schema не менялась.
+- Настоящий мультиплеер, WebSockets, Stripe — не добавлялись.
+- Equipped cosmetics — localStorage prototype layer, не Supabase.
+- Premium analytics — визуальный shell, нет аналитики и AI-вызовов.
+- Scouting — visual teaser, нет реального backend.

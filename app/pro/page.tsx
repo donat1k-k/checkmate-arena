@@ -9,18 +9,26 @@ import {
   loadOwnedStoreItems,
   purchaseArenaStoreItem,
 } from "@/lib/demo/economy";
+import {
+  equipCosmetic,
+  loadEquippedCosmetics,
+  type CosmeticCategory,
+  type EquippedCosmetics,
+} from "@/lib/demo/cosmetics";
 import { loadProTrialGamesLeft } from "@/lib/demo/retention";
 
 export default function ProPage() {
   const { t } = usePreferences();
   const [arenaCoins, setArenaCoins] = useState(0);
   const [ownedItemIds, setOwnedItemIds] = useState<string[]>([]);
+  const [equippedCosmetics, setEquippedCosmetics] = useState<EquippedCosmetics>({ frame: null, board: null, coach: null, title: null });
   const [storeNotice, setStoreNotice] = useState("");
   const [trialGamesLeft, setTrialGamesLeft] = useState(3);
 
   useEffect(() => {
     setArenaCoins(loadArenaCoinsBalance());
     setOwnedItemIds(loadOwnedStoreItems());
+    setEquippedCosmetics(loadEquippedCosmetics());
     setTrialGamesLeft(loadProTrialGamesLeft());
   }, []);
 
@@ -34,6 +42,13 @@ export default function ProPage() {
     if (purchase.status === "insufficient") {
       setStoreNotice(t.economy.store.insufficient);
     }
+  }
+
+  function handleEquip(itemId: string, category: CosmeticCategory) {
+    const isCurrentlyEquipped = equippedCosmetics[category] === itemId;
+    const next = equipCosmetic(category, isCurrentlyEquipped ? null : itemId);
+    setEquippedCosmetics(next);
+    setStoreNotice(isCurrentlyEquipped ? "" : t.economy.store.equipDone);
   }
 
   return (
@@ -221,20 +236,41 @@ export default function ProPage() {
                       : t.economy.store.lockedUltra}
                 </span>
               </div>
-              <button
-                type="button"
-                disabled={owned || item.access !== "coins"}
-                onClick={() => buyItem(item.id)}
-                className="mt-3 rounded border border-arena-border px-2.5 py-1 text-xs font-semibold text-arena-muted hover:border-arena-blue hover:text-arena-text disabled:cursor-not-allowed disabled:hover:border-arena-border disabled:hover:text-arena-muted"
-              >
-                {owned
-                  ? t.economy.store.owned
-                  : item.access === "coins" && item.cost !== undefined
+              {owned ? (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <span className="rounded border border-arena-win/30 bg-arena-win/10 px-2 py-1 text-xs font-semibold text-arena-win">
+                    {t.economy.store.owned}
+                  </span>
+                  {(item.category === "frame" || item.category === "board" || item.category === "coach" || item.category === "title") && (
+                    <button
+                      type="button"
+                      onClick={() => handleEquip(item.id, item.category as CosmeticCategory)}
+                      className={
+                        equippedCosmetics[item.category as CosmeticCategory] === item.id
+                          ? "rounded border border-arena-blue/40 bg-arena-amber-bg px-2 py-1 text-xs font-semibold text-arena-blue"
+                          : "rounded border border-arena-border px-2 py-1 text-xs font-semibold text-arena-muted hover:border-arena-blue hover:text-arena-text"
+                      }
+                    >
+                      {equippedCosmetics[item.category as CosmeticCategory] === item.id
+                        ? t.economy.store.equipped
+                        : t.economy.store.equip}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={item.access !== "coins"}
+                  onClick={() => buyItem(item.id)}
+                  className="mt-3 rounded border border-arena-border px-2.5 py-1 text-xs font-semibold text-arena-muted hover:border-arena-blue hover:text-arena-text disabled:cursor-not-allowed disabled:hover:border-arena-border disabled:hover:text-arena-muted"
+                >
+                  {item.access === "coins" && item.cost !== undefined
                     ? t.economy.store.buy(item.cost)
                     : item.access === "pro"
                       ? t.economy.store.lockedPro
                       : t.economy.store.lockedUltra}
-              </button>
+                </button>
+              )}
             </article>
             );
           })}

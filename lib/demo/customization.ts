@@ -1,3 +1,6 @@
+export const CLAN_TAG_PRESETS = ["", "NVS", "ALM", "TACT", "MATE", "RUSH"] as const;
+export type ClanTagPreset = (typeof CLAN_TAG_PRESETS)[number];
+
 export const PROFILE_CITIES = [
   "novosibirsk",
   "almaty",

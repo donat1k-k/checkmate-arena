@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Chess } from "chess.js";
@@ -21,6 +22,12 @@ import {
 import { addArenaCoins } from "@/lib/demo/economy";
 
 type PuzzleState = "idle" | "playing" | "correct" | "wrong" | "timeout";
+
+const SELECT_STYLE = { backgroundColor: "rgba(245,158,11,0.45)" };
+const TARGET_STYLE = {
+  background: "radial-gradient(circle, rgba(245,158,11,0.55) 25%, transparent 60%)",
+};
+const WRONG_STYLE = { backgroundColor: "rgba(239,68,68,0.35)" };
 
 function difficultyBadgeClass(d: BlitzDifficulty): string {
   if (d === "easy") return "bg-arena-win/15 text-arena-win border border-arena-win/30";
@@ -76,6 +83,10 @@ export default function BlitzPage() {
   const [hintText, setHintText] = useState("");
   const [coinsJustEarned, setCoinsJustEarned] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
+  const [legalTargets, setLegalTargets] = useState<Set<Square>>(new Set());
+  const [currentFen, setCurrentFen] = useState<string>("");
+  const [wrongSquares, setWrongSquares] = useState<{ from: Square; to: Square } | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentPuzzles = BLITZ_PUZZLES_BY_DIFFICULTY[selectedDifficulty];
@@ -113,34 +124,101 @@ export default function BlitzPage() {
     setHintText("");
     setShowAnswer(false);
     setCoinsJustEarned(0);
+    setSelectedSquare(null);
+    setLegalTargets(new Set());
+    setWrongSquares(null);
     if (!puzzle) return;
+    setCurrentFen(puzzle.fen);
     setTimeLeft(puzzle.timeLimitSeconds);
     setPuzzleState("playing");
   }
 
-  function handlePieceDrop(from: Square, to: Square): boolean {
-    if (!puzzle || puzzleState !== "playing") return false;
-    const moveSan = getMoveSan(from, to, puzzle.fen);
-    if (!moveSan) return false;
+  function selectSquare(square: Square, fen: string) {
+    try {
+      const chess = new Chess(fen);
+      const piece = chess.get(square);
+      if (!piece) {
+        setSelectedSquare(null);
+        setLegalTargets(new Set());
+        return;
+      }
+      const sideToMove: "w" | "b" = puzzle?.sideToMove ?? "w";
+      if (piece.color !== sideToMove) {
+        setSelectedSquare(null);
+        setLegalTargets(new Set());
+        return;
+      }
+      const moves = chess.moves({ square, verbose: true });
+      setSelectedSquare(square);
+      setLegalTargets(new Set(moves.map((m) => m.to as Square)));
+    } catch {
+      setSelectedSquare(null);
+      setLegalTargets(new Set());
+    }
+  }
+
+  function applyMove(from: Square, to: Square, fen: string): { success: boolean; resultFen: string; moveSan: string | null } {
+    try {
+      const chess = new Chess(fen);
+      const result = chess.move({ from, to, promotion: "q" });
+      if (!result) return { success: false, resultFen: fen, moveSan: null };
+      return { success: true, resultFen: chess.fen(), moveSan: result.san };
+    } catch {
+      return { success: false, resultFen: fen, moveSan: null };
+    }
+  }
+
+  function resolveMove(from: Square, to: Square) {
+    if (!puzzle || puzzleState !== "playing") return;
+    const fen = currentFen || puzzle.fen;
+    const { success, resultFen, moveSan } = applyMove(from, to, fen);
+    if (!success || !moveSan) {
+      setSelectedSquare(null);
+      setLegalTargets(new Set());
+      return;
+    }
 
     stopTimer();
+    setSelectedSquare(null);
+    setLegalTargets(new Set());
 
     if (normalizeSan(moveSan) === normalizeSan(puzzle.solution)) {
+      setCurrentFen(resultFen);
+      setWrongSquares(null);
       const newStats = recordBlitzSolve(puzzle.id, puzzle.rewardCoins);
       addArenaCoins(puzzle.rewardCoins);
       setStats(newStats);
       setCoinsJustEarned(puzzle.rewardCoins);
       setPuzzleState("correct");
     } else {
+      setCurrentFen(resultFen);
+      setWrongSquares({ from, to });
       setStats(recordBlitzFail());
       setPuzzleState("wrong");
     }
+  }
+
+  function handlePieceDrop(from: Square, to: Square): boolean {
+    if (!puzzle || puzzleState !== "playing") return false;
+    resolveMove(from, to);
     return true;
   }
 
   function handleSquareClick(square: Square) {
-    // Blitz board is drag-only; click does nothing during puzzles
-    void square;
+    if (!puzzle || puzzleState !== "playing") return;
+    const fen = currentFen || puzzle.fen;
+
+    if (selectedSquare === null) {
+      selectSquare(square, fen);
+      return;
+    }
+
+    if (legalTargets.has(square)) {
+      resolveMove(selectedSquare, square);
+      return;
+    }
+
+    selectSquare(square, fen);
   }
 
   function handleNextPuzzle() {
@@ -151,6 +229,19 @@ export default function BlitzPage() {
     setHintText("");
     setShowAnswer(false);
     setCoinsJustEarned(0);
+    setSelectedSquare(null);
+    setLegalTargets(new Set());
+    setCurrentFen("");
+    setWrongSquares(null);
+  }
+
+  function handleResetPosition() {
+    if (!puzzle) return;
+    setCurrentFen(puzzle.fen);
+    setSelectedSquare(null);
+    setLegalTargets(new Set());
+    setWrongSquares(null);
+    setPuzzleState("idle");
   }
 
   function handleHint() {
@@ -171,6 +262,10 @@ export default function BlitzPage() {
     setHintText("");
     setShowAnswer(false);
     setCoinsJustEarned(0);
+    setSelectedSquare(null);
+    setLegalTargets(new Set());
+    setCurrentFen("");
+    setWrongSquares(null);
     stopTimer();
   }
 
@@ -184,6 +279,18 @@ export default function BlitzPage() {
   const orientation: Color = puzzle?.sideToMove === "b" ? "b" : "w";
   const sideLabel = puzzle ? (puzzle.sideToMove === "w" ? tb.white : tb.black) : "";
   const allDone = puzzleIndex + 1 >= currentPuzzles.length && puzzleState !== "playing" && puzzleState !== "idle";
+
+  const boardFen = currentFen || puzzle?.fen || "";
+
+  const squareStyles: Record<string, React.CSSProperties> = {};
+  if (selectedSquare) squareStyles[selectedSquare] = SELECT_STYLE;
+  legalTargets.forEach((sq) => {
+    squareStyles[sq] = TARGET_STYLE;
+  });
+  if (wrongSquares) {
+    squareStyles[wrongSquares.from] = WRONG_STYLE;
+    squareStyles[wrongSquares.to] = WRONG_STYLE;
+  }
 
   const DIFFICULTIES: Array<{ key: BlitzDifficulty; locked: boolean }> = [
     { key: "easy", locked: false },
@@ -262,9 +369,9 @@ export default function BlitzPage() {
             {/* Board */}
             <div className="overflow-hidden rounded-lg border border-arena-border" style={{ maxWidth: 380 }}>
               <Board
-                fen={puzzle.fen}
+                fen={boardFen}
                 orientation={orientation}
-                squareStyles={{}}
+                squareStyles={squareStyles}
                 allowDragging={puzzleState === "playing"}
                 onSquareClick={handleSquareClick}
                 onPieceDrop={handlePieceDrop}
@@ -343,7 +450,7 @@ export default function BlitzPage() {
                 )}
                 <div className="flex flex-wrap gap-2">
                   {puzzleState === "wrong" && (
-                    <button type="button" onClick={startPuzzle} className="rounded-md border border-arena-border bg-arena-panel px-4 py-2 text-sm font-medium hover:border-arena-blue">
+                    <button type="button" onClick={handleResetPosition} className="rounded-md border border-arena-border bg-arena-panel px-4 py-2 text-sm font-medium hover:border-arena-blue">
                       {tb.tryAgain}
                     </button>
                   )}

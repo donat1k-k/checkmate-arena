@@ -5,6 +5,7 @@ import ArenaAvatar from "@/components/profile/ArenaAvatar";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import {
   AVATAR_PRESETS,
+  CLAN_TAG_PRESETS,
   PROFILE_CITIES,
   PROFILE_VISIBILITIES,
   loadProfileCustomization,
@@ -12,6 +13,16 @@ import {
   saveProfileCustomization,
   type ProfileCustomization,
 } from "@/lib/demo/customization";
+import {
+  equipCosmetic,
+  loadEquippedCosmetics,
+  type CosmeticCategory,
+  type EquippedCosmetics,
+} from "@/lib/demo/cosmetics";
+import {
+  ARENA_STORE_ITEMS,
+  loadOwnedStoreItems,
+} from "@/lib/demo/economy";
 import { resetArenaEconomy } from "@/lib/demo/economy";
 import { resetRetentionState } from "@/lib/demo/retention";
 import { resetBlitzStats } from "@/lib/demo/blitz";
@@ -39,10 +50,14 @@ export default function SettingsPage() {
   const [customization, setCustomization] = useState<ProfileCustomization>(
     loadProfileCustomization(),
   );
+  const [equippedCosmetics, setEquippedCosmetics] = useState<EquippedCosmetics>({ frame: null, board: null, coach: null, title: null });
+  const [ownedItemIds, setOwnedItemIds] = useState<string[]>([]);
   const [resetDone, setResetDone] = useState(false);
 
   useEffect(() => {
     setCustomization(loadProfileCustomization());
+    setEquippedCosmetics(loadEquippedCosmetics());
+    setOwnedItemIds(loadOwnedStoreItems());
   }, []);
 
   function patchCustomization(patch: Partial<ProfileCustomization>) {
@@ -52,6 +67,11 @@ export default function SettingsPage() {
     );
   }
 
+  function handleEquip(itemId: string, category: CosmeticCategory) {
+    const isEquipped = equippedCosmetics[category] === itemId;
+    setEquippedCosmetics(equipCosmetic(category, isEquipped ? null : itemId));
+  }
+
   function resetLocalProductData() {
     if (!window.confirm(t.settings.resetConfirm)) return;
     resetArenaEconomy();
@@ -59,6 +79,8 @@ export default function SettingsPage() {
     resetBlitzStats();
     resetProfileCustomization();
     setCustomization(loadProfileCustomization());
+    setOwnedItemIds([]);
+    setEquippedCosmetics({ frame: null, board: null, coach: null, title: null });
     setResetDone(true);
   }
 
@@ -98,6 +120,14 @@ export default function SettingsPage() {
           <a href="#city" className={navItemClass(false)}>
             <span>CT</span>
             {t.settings.cityTitle}
+          </a>
+          <a href="#clantag" className={navItemClass(false)}>
+            <span>[]</span>
+            {t.settings.clanTagTitle}
+          </a>
+          <a href="#cosmetics" className={navItemClass(false)}>
+            <span>COS</span>
+            {t.settings.cosmeticsTitle}
           </a>
           <p className="px-3 pb-1 pt-3 font-mono text-[10px] uppercase tracking-wider text-arena-muted">
             {t.settings.dataTitle}
@@ -217,6 +247,67 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+        </section>
+
+        <section id="clantag" className="border-t border-arena-border pt-7">
+          <h2 className="mb-1 text-xl font-bold">{t.settings.clanTagTitle}</h2>
+          <p className="mb-4 text-sm text-arena-muted">{t.settings.clanTagBody}</p>
+          <div className="flex flex-wrap gap-2">
+            {CLAN_TAG_PRESETS.map((preset) => (
+              <button
+                key={preset || "__none__"}
+                type="button"
+                aria-pressed={customization.clanTag === preset}
+                onClick={() => patchCustomization({ clanTag: preset })}
+                className={optionClass(customization.clanTag === preset)}
+              >
+                {preset === "" ? t.settings.clanTagNone : `[${preset}]`}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section id="cosmetics" className="border-t border-arena-border pt-7">
+          <h2 className="mb-1 text-xl font-bold">{t.settings.cosmeticsTitle}</h2>
+          <p className="mb-4 text-sm text-arena-muted">{t.settings.cosmeticsBody}</p>
+          {(["frame", "board", "coach", "title"] as CosmeticCategory[]).map((cat) => {
+            const catItems = ARENA_STORE_ITEMS.filter(
+              (item) => item.category === cat && ownedItemIds.includes(item.id),
+            );
+            const catLabel = t.economy.store.categories[cat];
+            return (
+              <div key={cat} className="mb-4">
+                <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-arena-muted">{catLabel}</p>
+                {catItems.length === 0 ? (
+                  <p className="text-xs text-arena-muted">{t.settings.cosmeticsNone}</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {catItems.map((item) => {
+                      const copy = t.economy.store.items[item.id as keyof typeof t.economy.store.items];
+                      const isEquipped = equippedCosmetics[cat] === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleEquip(item.id, cat)}
+                          className={
+                            isEquipped
+                              ? "rounded-md border border-arena-blue/40 bg-arena-amber-bg px-3 py-2 text-left text-sm font-semibold text-arena-blue"
+                              : "rounded-md border border-arena-border bg-arena-panel px-3 py-2 text-left text-sm hover:border-arena-blue"
+                          }
+                        >
+                          <span className="block font-semibold">{copy.name}</span>
+                          <span className="block text-xs text-arena-muted">
+                            {isEquipped ? t.economy.store.equipped : t.economy.store.equip}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </section>
 
         <section id="storage" className="border-t border-arena-border pt-7">

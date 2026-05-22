@@ -350,6 +350,24 @@ export default function LeaderboardPage() {
         )}
       </section>
 
+      {/* ── Scouting teaser ── */}
+      <section className="grid gap-4 rounded-lg border border-arena-border bg-arena-panel p-5 lg:grid-cols-[1fr_auto]">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.common.pro}</p>
+          <h2 className="mt-1 text-lg font-semibold">{t.leaderboard.scoutTitle}</h2>
+          <p className="mt-1 text-sm text-arena-muted">{t.leaderboard.scoutBody}</p>
+        </div>
+        <div className="flex items-center">
+          <button
+            type="button"
+            disabled
+            className="rounded-md border border-arena-border px-4 py-2 text-sm font-semibold text-arena-muted disabled:cursor-not-allowed"
+          >
+            {t.leaderboard.scoutLocked}
+          </button>
+        </div>
+      </section>
+
       {loaded && !isAccount && !hasGuestProfile && (
         <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-muted">
           {t.leaderboard.guestHintStart}{" "}

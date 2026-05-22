@@ -8,6 +8,11 @@ import {
   loadProfileCustomization,
   type ProfileCustomization,
 } from "@/lib/demo/customization";
+import {
+  loadEquippedCosmetics,
+  type EquippedCosmetics,
+} from "@/lib/demo/cosmetics";
+import { loadOwnedStoreItems } from "@/lib/demo/economy";
 import { loadArenaCoinsBalance } from "@/lib/demo/economy";
 import { loadProTrialGamesLeft } from "@/lib/demo/retention";
 import { getAccuracy, loadBlitzStats, type BlitzStats } from "@/lib/demo/blitz";
@@ -249,6 +254,8 @@ export default function ProfilePage() {
     loadProfileCustomization(),
   );
   const [blitzStats, setBlitzStats] = useState<BlitzStats | null>(null);
+  const [equippedCosmetics, setEquippedCosmetics] = useState<EquippedCosmetics>({ frame: null, board: null, coach: null, title: null });
+  const [ownedItemIds, setOwnedItemIds] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -256,6 +263,8 @@ export default function ProfilePage() {
     setTrialGamesLeft(loadProTrialGamesLeft());
     setCustomization(loadProfileCustomization());
     setBlitzStats(loadBlitzStats());
+    setEquippedCosmetics(loadEquippedCosmetics());
+    setOwnedItemIds(loadOwnedStoreItems());
 
     async function loadProfilePage() {
       const supabase = createClient();
@@ -416,9 +425,16 @@ export default function ProfilePage() {
                 <span className="rounded-full border border-arena-border bg-arena-elevated px-2.5 py-0.5 text-xs font-semibold text-arena-muted">
                   {trialGamesLeft > 0 ? t.profile.trialBadge : t.profile.freeBadge}
                 </span>
-                <span className="rounded-full border border-arena-border bg-arena-elevated px-2.5 py-0.5 font-mono text-xs font-semibold">
-                  [{clanTag}]
-                </span>
+                {clanTag && clanTag !== t.profile.clanOpen && (
+                  <span className="rounded-full border border-arena-border bg-arena-elevated px-2.5 py-0.5 font-mono text-xs font-semibold">
+                    [{clanTag}]
+                  </span>
+                )}
+                {equippedCosmetics.title && ownedItemIds.includes(equippedCosmetics.title) && (
+                  <span className="rounded-full border border-arena-amber-border bg-arena-amber-bg px-2.5 py-0.5 text-xs font-semibold text-arena-blue">
+                    {t.economy.store.items[equippedCosmetics.title as keyof typeof t.economy.store.items]?.name ?? equippedCosmetics.title}
+                  </span>
+                )}
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-arena-muted">
                 <span>{t.profile.city}: {t.settings.cities[customization.city]}</span>
@@ -660,6 +676,76 @@ export default function ProfilePage() {
             </button>
           </div>
         </article>
+      </section>
+
+      {/* ── Active cosmetics summary ── */}
+      {(equippedCosmetics.frame || equippedCosmetics.board || equippedCosmetics.coach || equippedCosmetics.title) && (
+        <section className="rounded-lg border border-arena-amber-border bg-arena-amber-bg p-4">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.activeCosmetics}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["frame", "board", "coach", "title"] as const).map((cat) => {
+              const equipped = equippedCosmetics[cat];
+              if (!equipped) return null;
+              const copy = t.economy.store.items[equipped as keyof typeof t.economy.store.items];
+              return (
+                <span key={cat} className="rounded border border-arena-blue/30 bg-arena-panel px-2.5 py-1 text-xs">
+                  <span className="text-arena-muted">{t.profile[`equipped${cat.charAt(0).toUpperCase()}${cat.slice(1)}` as "equippedFrame" | "equippedBoard" | "equippedCoach" | "equippedTitle"]}: </span>
+                  <span className="font-semibold text-arena-blue">{copy?.name ?? equipped}</span>
+                </span>
+              );
+            })}
+          </div>
+          <Link href="/settings#cosmetics" className="mt-2 block text-xs text-arena-muted hover:text-arena-blue">
+            {t.profile.activeCosmeticsBody}
+          </Link>
+        </section>
+      )}
+
+      {/* ── Premium analytics shell ── */}
+      <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+        <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.premiumAnalyticsEyebrow}</p>
+        <p className="mt-1 text-sm text-arena-muted">{t.profile.premiumAnalyticsBody}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {([
+            { key: "detailedStats", body: "detailedStatsBody", tier: "pro" as const },
+            { key: "openingTendencies", body: "openingTendenciesBody", tier: "pro" as const },
+            { key: "blunderHeatmap", body: "blunderHeatmapBody", tier: "pro" as const },
+            { key: "endgameConversion", body: "endgameConversionBody", tier: "pro" as const },
+            { key: "playerEvolution", body: "playerEvolutionBody", tier: "pro" as const },
+            { key: "patternAnalysis", body: "patternAnalysisBody", tier: "ultra" as const },
+          ] as { key: keyof typeof t.profile; body: keyof typeof t.profile; tier: "pro" | "ultra" }[]).map(({ key, body, tier }) => (
+            <div key={key as string} className="relative overflow-hidden rounded-md border border-arena-border bg-arena-elevated p-4">
+              <div className="select-none blur-[2px]">
+                <p className="font-semibold text-arena-text">{t.profile[key] as string}</p>
+                <p className="mt-1 text-xs text-arena-muted">{t.profile[body] as string}</p>
+                <div className="mt-3 h-8 rounded bg-arena-border/40" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center rounded-md bg-arena-panel/80 backdrop-blur-[1px]">
+                <Link href="/pro" className="rounded-md border border-arena-border bg-arena-panel px-3 py-1.5 text-xs font-semibold text-arena-muted hover:border-arena-blue hover:text-arena-text">
+                  {tier === "ultra" ? t.profile.premiumLockedUltra : t.profile.premiumLocked}
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Scouting shell ── */}
+      <section className="grid gap-4 rounded-lg border border-arena-border bg-arena-panel p-5 lg:grid-cols-[1fr_auto]">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.common.pro}</p>
+          <h2 className="mt-1 text-lg font-semibold">{t.profile.scoutingTitle}</h2>
+          <p className="mt-1 text-sm text-arena-muted">{t.profile.scoutingBody}</p>
+        </div>
+        <div className="flex items-center">
+          <button
+            type="button"
+            disabled
+            className="rounded-md border border-arena-border px-4 py-2 text-sm font-semibold text-arena-muted disabled:cursor-not-allowed"
+          >
+            {t.profile.scoutingLocked}
+          </button>
+        </div>
       </section>
 
       {blitzStats && blitzStats.attempts > 0 && (
