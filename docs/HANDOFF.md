@@ -506,3 +506,22 @@ QA + точечный hardening без нового этапа.
 - Показ сохранённого AI review при повторном открытии без повторного запроса.
 - Опционально: индикатор стоимости / модели в UI.
 - Опционально: streaming ответа через ReadableStream для более быстрого UX.
+
+## Deploy 1A — Health endpoint + production sanity check. Статус: завершён (2026-05-22)
+
+### Сделано
+- `app/api/health/route.ts` — `GET /api/health` возвращает `{ ok: true, service: "checkmate-arena" }`.
+- `package.json` проверен: `build: next build`, `start: next start`, `dev: next dev --webpack` — всё корректно.
+- `.gitignore` проверен: `.env*.local`, `/.next`, `/node_modules` — не попадают в git.
+- `.env.example` проверен: Supabase (URL, anon, service_role) + AI Coach (base URL, key, model) — без реальных секретов.
+
+### Команды и проверки
+- `npm run build` — OK. `/api/health` появился в route-таблице как динамический endpoint (`ƒ`).
+- `git diff --check` — чисто (без whitespace-ошибок).
+
+### Что проверить вручную
+- На запущенном `npm run start`: `GET /api/health` → `{ "ok": true, "service": "checkmate-arena" }`, HTTP 200.
+- Убедиться, что `.env.local` не попал в `git status`.
+
+### Готовность к Deploy 1B
+Да. Health endpoint работает, build чистый, секреты не утекают в git.
