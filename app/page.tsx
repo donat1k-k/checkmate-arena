@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import ArenaPreviewBoard from "@/components/chess/ArenaPreviewBoard";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
-import { loadMatches, loadGuestProfile, type LocalMatch } from "@/lib/demo/progress";
+import { loadArenaCoinsBalance } from "@/lib/demo/economy";
+import {
+  getOpponentDisplayName,
+  loadMatches,
+  loadGuestProfile,
+  type LocalMatch,
+} from "@/lib/demo/progress";
 
 export default function HomePage() {
   const { t } = usePreferences();
@@ -13,8 +19,10 @@ export default function HomePage() {
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
   const [draws, setDraws] = useState(0);
+  const [arenaCoins, setArenaCoins] = useState(0);
 
   useEffect(() => {
+    setArenaCoins(loadArenaCoinsBalance());
     const saved = loadMatches();
     setMatches(saved.slice().reverse().slice(0, 5));
     const profile = loadGuestProfile();
@@ -71,6 +79,12 @@ export default function HomePage() {
                 )}
               </div>
               <div className="text-xs text-arena-muted mb-3">ELO Rating · Blitz</div>
+              <div className="mb-3 flex items-center justify-between rounded border border-arena-amber-border bg-arena-amber-bg px-2.5 py-2">
+                <span className="text-xs font-semibold text-arena-muted">{t.economy.label}</span>
+                <span className="font-mono text-sm font-bold text-arena-gold">
+                  {arenaCoins} {t.economy.abbr}
+                </span>
+              </div>
               <div
                 className="grid grid-cols-3 overflow-hidden rounded border border-arena-border mb-3"
                 style={{ gap: "1px", background: "var(--color-arena-border)" }}
@@ -150,7 +164,9 @@ export default function HomePage() {
                         </span>
                         {/* Opponent */}
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold truncate">{match.opponentNickname}</div>
+                          <div className="text-sm font-semibold truncate">
+                            {getOpponentDisplayName(match.opponentNickname, t.match.opponent)}
+                          </div>
                           <div className="text-[10px] text-arena-muted">
                             {match.finish} · {match.moveCount} moves
                           </div>
@@ -271,6 +287,7 @@ export default function HomePage() {
               >
                 <p className="text-xs text-arena-muted">{t.home.proLabel}</p>
                 <p className="mt-1 font-semibold text-sm">{t.home.proCard}</p>
+                <p className="mt-2 text-xs font-semibold text-arena-blue">{t.home.proCta}</p>
               </Link>
             </div>
           </div>

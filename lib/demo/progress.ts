@@ -7,6 +7,18 @@ const ACTIVE_GAME_KEY = "checkmate-arena.active-game.v1";
 const DEFAULT_RATING = 1000;
 const LOCAL_RIVAL_OPPONENT_ID = "local-rival";
 const LEGACY_LOCAL_RIVAL_NICKNAME = "Local Rival";
+const ARENA_AI_OPPONENT_PREFIX = "arena-ai-";
+
+export type PlayMode = "local" | "ai";
+export type AiDifficulty = "beginner" | "casual" | "tactical";
+export type PlayerSideChoice = "white" | "black" | "random";
+
+export type OpponentDisplayLabels = {
+  localRival: string;
+  aiBeginner: string;
+  aiCasual: string;
+  aiTactical: string;
+};
 
 export type MatchResult = "win" | "loss" | "draw";
 
@@ -54,6 +66,8 @@ type CompleteMatchInput = {
   finalFen: string;
   outcome: GameOutcome;
   sanMoves: string[];
+  playerColor?: Color;
+  opponentNickname?: string;
 };
 
 function canUseStorage(): boolean {
@@ -138,9 +152,12 @@ function finishFromOutcome(outcome: GameOutcome): MatchFinish {
   return outcome.reason;
 }
 
-function resultFromOutcome(outcome: GameOutcome): MatchResult {
+function resultFromOutcome(
+  outcome: GameOutcome,
+  playerColor: Color,
+): MatchResult {
   if (outcome.state === "stalemate" || outcome.state === "draw") return "draw";
-  return outcome.winner === "w" ? "win" : "loss";
+  return outcome.winner === playerColor ? "win" : "loss";
 }
 
 function requestedRatingDelta(result: MatchResult): number {
@@ -224,15 +241,16 @@ export function recordCompletedMatch(
     };
   }
 
-  const result = resultFromOutcome(input.outcome);
+  const playerColor = input.playerColor ?? "w";
+  const result = resultFromOutcome(input.outcome, playerColor);
   const ratingBefore = profile.rating;
   const ratingAfter = Math.max(0, ratingBefore + requestedRatingDelta(result));
   const match: LocalMatch = {
     id: input.id,
     guestId: profile.id,
     guestNickname: profile.nickname,
-    opponentNickname: LOCAL_RIVAL_OPPONENT_ID,
-    playerColor: "w",
+    opponentNickname: input.opponentNickname ?? LOCAL_RIVAL_OPPONENT_ID,
+    playerColor,
     result,
     finish: finishFromOutcome(input.outcome),
     ratingBefore,
@@ -254,12 +272,32 @@ export function recordCompletedMatch(
 
 export function getOpponentDisplayName(
   opponentNickname: string,
-  localRivalLabel: string,
+  labels: OpponentDisplayLabels,
 ): string {
-  return opponentNickname === LOCAL_RIVAL_OPPONENT_ID ||
+  if (
+    opponentNickname === LOCAL_RIVAL_OPPONENT_ID ||
     opponentNickname === LEGACY_LOCAL_RIVAL_NICKNAME
-    ? localRivalLabel
-    : opponentNickname;
+  ) {
+    return labels.localRival;
+  }
+
+  if (opponentNickname === arenaAiOpponentId("beginner")) {
+    return labels.aiBeginner;
+  }
+
+  if (opponentNickname === arenaAiOpponentId("casual")) {
+    return labels.aiCasual;
+  }
+
+  if (opponentNickname === arenaAiOpponentId("tactical")) {
+    return labels.aiTactical;
+  }
+
+  return opponentNickname;
+}
+
+export function arenaAiOpponentId(difficulty: AiDifficulty): string {
+  return `${ARENA_AI_OPPONENT_PREFIX}${difficulty}`;
 }
 
 export function getGamesPlayed(profile: GuestProfile): number {
@@ -313,6 +351,10 @@ export type ActiveGameDraft = {
   createdAt: string;
   savedAt: string;
   profileId: string;
+  mode?: PlayMode;
+  aiDifficulty?: AiDifficulty;
+  playerColor?: Color;
+  sideChoice?: PlayerSideChoice;
 };
 
 function isActiveDraft(value: unknown): value is ActiveGameDraft {
@@ -323,7 +365,17 @@ function isActiveDraft(value: unknown): value is ActiveGameDraft {
     typeof d.matchId === "string" &&
     typeof d.createdAt === "string" &&
     typeof d.savedAt === "string" &&
-    typeof d.profileId === "string"
+    typeof d.profileId === "string" &&
+    (d.mode === undefined || d.mode === "local" || d.mode === "ai") &&
+    (d.aiDifficulty === undefined ||
+      d.aiDifficulty === "beginner" ||
+      d.aiDifficulty === "casual" ||
+      d.aiDifficulty === "tactical") &&
+    (d.playerColor === undefined || d.playerColor === "w" || d.playerColor === "b") &&
+    (d.sideChoice === undefined ||
+      d.sideChoice === "white" ||
+      d.sideChoice === "black" ||
+      d.sideChoice === "random")
   );
 }
 

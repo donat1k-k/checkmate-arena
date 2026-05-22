@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import { loadArenaCoinsBalance } from "@/lib/demo/economy";
 import {
   getGamesPlayed,
   getOpponentDisplayName,
@@ -122,9 +123,11 @@ export default function ProfilePage() {
   const [matches, setMatches] = useState<ProfileMatch[]>([]);
   const [accountError, setAccountError] = useState(false);
   const [historyError, setHistoryError] = useState(false);
+  const [arenaCoins, setArenaCoins] = useState(0);
 
   useEffect(() => {
     let active = true;
+    setArenaCoins(loadArenaCoinsBalance());
 
     async function loadProfilePage() {
       const supabase = createClient();
@@ -249,7 +252,7 @@ export default function ProfilePage() {
   const recentOpponent = recentMatch
     ? getOpponentDisplayName(
         recentMatch.opponentNickname,
-        t.match.opponent.localRival,
+        t.match.opponent,
       )
     : null;
 
@@ -292,6 +295,12 @@ export default function ProfilePage() {
               >
                 {t.profile.playAgain}
               </Link>
+              <Link
+                href="/pro"
+                className="rounded-md border border-arena-border px-4 py-2 text-sm font-semibold hover:border-arena-gold"
+              >
+                {t.profile.proCtaLink}
+              </Link>
             </div>
           </div>
 
@@ -308,6 +317,7 @@ export default function ProfilePage() {
               { label: t.profile.stats.wins, value: profile.wins, mono: true },
               { label: t.profile.stats.losses, value: profile.losses, mono: true },
               { label: t.profile.stats.streak, value: profile.streak, mono: true },
+              { label: t.economy.abbr, value: arenaCoins, mono: true },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -345,6 +355,13 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+          <Link
+            href="/pro"
+            className="mt-3 block rounded-md border border-arena-amber-border bg-arena-amber-bg px-4 py-3 hover:border-arena-gold"
+          >
+            <p className="text-sm font-semibold">{t.profile.proCtaTitle}</p>
+            <p className="mt-1 text-xs text-arena-muted">{t.profile.proCtaBody}</p>
+          </Link>
         </div>
 
         <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
@@ -443,7 +460,7 @@ export default function ProfilePage() {
                       {t.common.vs}{" "}
                       {getOpponentDisplayName(
                         match.opponentNickname,
-                        t.match.opponent.localRival,
+                        t.match.opponent,
                       )}
                     </span>
                   </div>

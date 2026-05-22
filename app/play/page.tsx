@@ -6,11 +6,18 @@ import type { Color, Square } from "chess.js";
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import { chooseAiMove } from "@/lib/chess/ai";
 import { ChessGame, type GameStatus, type PromotionPiece } from "@/lib/chess/engine";
 import {
+  loadArenaCoinsBalance,
+  rewardArenaCoinsForMatch,
+} from "@/lib/demo/economy";
+import {
+  arenaAiOpponentId,
   clearActiveGame,
   createGuestProfile,
   createLocalId,
+  getOpponentDisplayName,
   getRatingLevel,
   loadActiveGame,
   loadGuestProfile,
@@ -19,7 +26,10 @@ import {
   saveActiveGame,
   saveGuestProfile,
   type GuestProfile,
+  type AiDifficulty,
   type LocalMatch,
+  type PlayerSideChoice,
+  type PlayMode,
 } from "@/lib/demo/progress";
 import type { AppTranslations } from "@/lib/i18n/translations";
 import { createClient } from "@/lib/supabase/client";
@@ -33,6 +43,11 @@ import {
 } from "@/lib/supabase/profiles";
 
 const RIVAL_RATING = 1035;
+const AI_RATINGS: Record<AiDifficulty, number> = {
+  beginner: 760,
+  casual: 1040,
+  tactical: 1280,
+};
 
 function resultText(status: GameStatus, t: AppTranslations): string {
   switch (status.state) {
@@ -70,7 +85,13 @@ export default function PlayPage() {
   const matchIdRef = useRef(createLocalId("match"));
   const matchCreatedAtRef = useRef(new Date().toISOString());
   const accountSaveStartedRef = useRef(false);
+  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [, forceUpdate] = useReducer((n: number) => n + 1, 0);
+  const [mode, setMode] = useState<PlayMode>("local");
+  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>("beginner");
+  const [sideChoice, setSideChoice] = useState<PlayerSideChoice>("white");
+  const [playerColor, setPlayerColor] = useState<Color>("w");
+  const [aiThinking, setAiThinking] = useState(false);
   const [selected, setSelected] = useState<Square | null>(null);
   const [promotion, setPromotion] = useState<{ from: Square; to: Square } | null>(
     null,
@@ -89,6 +110,11 @@ export default function PlayPage() {
     CompletedAccountMatch | LocalMatch | null
   >(null);
   const [gameRestored, setGameRestored] = useState(false);
+  const [arenaCoins, setArenaCoins] = useState(0);
+  const [coinReward, setCoinReward] = useState<{
+    amount: number;
+    balance: number;
+  } | null>(null);
 
   const game = gameRef.current;
   const status = game.status();
@@ -99,6 +125,20 @@ export default function PlayPage() {
         ? t.match.status.inCheck(t.match.color[status.turn])
         : t.match.status.toMove(t.match.color[status.turn])
       : resultText(status, t);
+  const progressColor: Color = mode === "ai" ? playerColor : "w";
+  const currentOpponentId =
+    mode === "ai" ? arenaAiOpponentId(aiDifficulty) : "local-rival";
+  const opponentName = getOpponentDisplayName(currentOpponentId, t.match.opponent);
+  const opponentRating =
+    mode === "ai" ? AI_RATINGS[aiDifficulty] : RIVAL_RATING;
+  const playerCanMove =
+    !gameOver &&
+    !aiThinking &&
+    (mode === "local" || game.turn === playerColor);
+
+  useEffect(() => {
+    setArenaCoins(loadArenaCoinsBalance());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -161,6 +201,10 @@ export default function PlayPage() {
       gameRef.current = restoredGame;
       matchIdRef.current = draft.matchId;
       matchCreatedAtRef.current = draft.createdAt;
+      setMode(draft.mode ?? "local");
+      setAiDifficulty(draft.aiDifficulty ?? "beginner");
+      setSideChoice(draft.sideChoice ?? "white");
+      setPlayerColor(draft.playerColor ?? "w");
       setGameRestored(true);
       forceUpdate();
     } catch {
@@ -180,6 +224,8 @@ export default function PlayPage() {
       finalFen: game.fen,
       outcome,
       sanMoves: game.history().map((move) => move.san),
+      playerColor: progressColor,
+      opponentNickname: currentOpponentId,
     };
 
     if (profileKind === "guest") {
@@ -191,6 +237,11 @@ export default function PlayPage() {
       clearActiveGame();
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
+      const reward = rewardArenaCoinsForMatch(saved.match.id);
+      setArenaCoins(reward.balance);
+      if (reward.awarded) {
+        setCoinReward({ amount: reward.amount, balance: reward.balance });
+      }
       return;
     }
 
@@ -221,6 +272,11 @@ export default function PlayPage() {
       clearActiveGame();
       setProfile(saved.profile);
       setCompletedMatch(saved.match);
+      const reward = rewardArenaCoinsForMatch(saved.match.id);
+      setArenaCoins(reward.balance);
+      if (reward.awarded) {
+        setCoinReward({ amount: reward.amount, balance: reward.balance });
+      }
       setSavePending(false);
     }).catch(() => {
       if (!active) return;
@@ -231,20 +287,99 @@ export default function PlayPage() {
     return () => {
       active = false;
     };
-  }, [completedMatch, game, gameOver, locale, profile, profileKind]);
+  }, [
+    completedMatch,
+    currentOpponentId,
+    game,
+    gameOver,
+    locale,
+    profile,
+    profileKind,
+    progressColor,
+  ]);
 
-  function reset() {
+  useEffect(() => {
+    if (
+      !profile ||
+      mode !== "ai" ||
+      gameOver ||
+      promotion ||
+      game.turn === playerColor ||
+      aiTimerRef.current
+    ) {
+      return;
+    }
+
+    setAiThinking(true);
+    aiTimerRef.current = setTimeout(() => {
+      aiTimerRef.current = null;
+      const choice = chooseAiMove(gameRef.current.fen, aiDifficulty);
+
+      if (choice) {
+        const result = gameRef.current.move(
+          choice.from,
+          choice.to,
+          choice.promotion,
+        );
+        if (result.ok) {
+          persistActiveGame();
+          setSelected(null);
+          forceUpdate();
+        }
+      }
+
+      setAiThinking(false);
+    }, 480);
+
+    return () => {
+      if (!aiTimerRef.current) return;
+      clearTimeout(aiTimerRef.current);
+      aiTimerRef.current = null;
+      setAiThinking(false);
+    };
+  // `game.turn` changes only when this page forces a board update.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiDifficulty, game.turn, gameOver, mode, playerColor, profile?.id, promotion]);
+
+  function resolvePlayerColor(choice: PlayerSideChoice): Color {
+    if (choice === "white") return "w";
+    if (choice === "black") return "b";
+    return Math.random() >= 0.5 ? "w" : "b";
+  }
+
+  function reset(config?: {
+    mode?: PlayMode;
+    aiDifficulty?: AiDifficulty;
+    sideChoice?: PlayerSideChoice;
+  }) {
+    const nextMode = config?.mode ?? mode;
+    const nextDifficulty = config?.aiDifficulty ?? aiDifficulty;
+    const nextSideChoice = config?.sideChoice ?? sideChoice;
+    const nextColor =
+      nextMode === "ai" ? resolvePlayerColor(nextSideChoice) : "w";
+
+    if (aiTimerRef.current) {
+      clearTimeout(aiTimerRef.current);
+      aiTimerRef.current = null;
+    }
+
     clearActiveGame();
     gameRef.current = new ChessGame();
     matchIdRef.current = createLocalId("match");
     matchCreatedAtRef.current = new Date().toISOString();
     accountSaveStartedRef.current = false;
+    setMode(nextMode);
+    setAiDifficulty(nextDifficulty);
+    setSideChoice(nextSideChoice);
+    setPlayerColor(nextColor);
+    setAiThinking(false);
     setSelected(null);
     setPromotion(null);
     setCompletedMatch(null);
     setSaveError(false);
     setSavePending(false);
     setGameRestored(false);
+    setCoinReward(null);
     forceUpdate();
   }
 
@@ -272,11 +407,16 @@ export default function PlayPage() {
       createdAt: matchCreatedAtRef.current,
       savedAt: new Date().toISOString(),
       profileId: profile.id,
+      mode,
+      aiDifficulty,
+      playerColor,
+      sideChoice,
     });
   }
 
   /** Apply a move; returns true when the board position changed. */
   function applyMove(from: Square, to: Square): boolean {
+    if (!playerCanMove) return false;
     if (game.isPromotion(from, to)) {
       setPromotion({ from, to });
       setSelected(null);
@@ -293,7 +433,7 @@ export default function PlayPage() {
   }
 
   function handleSquareClick(square: Square) {
-    if (gameOver) return;
+    if (!playerCanMove) return;
     if (selected) {
       if (square === selected) {
         setSelected(null);
@@ -309,7 +449,7 @@ export default function PlayPage() {
   }
 
   function choosePromotion(piece: PromotionPiece) {
-    if (!promotion) return;
+    if (!promotion || !playerCanMove) return;
     const result = game.move(promotion.from, promotion.to, piece);
     setPromotion(null);
     if (result.ok) {
@@ -320,8 +460,13 @@ export default function PlayPage() {
 
   function resign() {
     if (gameOver) return;
-    game.resign(game.turn);
+    if (aiTimerRef.current) {
+      clearTimeout(aiTimerRef.current);
+      aiTimerRef.current = null;
+    }
+    game.resign(mode === "ai" ? playerColor : game.turn);
     clearActiveGame();
+    setAiThinking(false);
     setSelected(null);
     forceUpdate();
   }
@@ -421,22 +566,166 @@ export default function PlayPage() {
         {/* ── LEFT SIDEBAR: setup info ── */}
         <div className="order-3 flex min-w-0 flex-col border-t border-arena-border md:order-none md:border-r md:border-t-0">
           <div className="sidebar-sec">
+            <div className="sidebar-sec-title">{t.play.modeSelector}</div>
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={() => reset({ mode: "local" })}
+                className={
+                  mode === "local"
+                    ? "rounded border border-arena-amber-border bg-arena-amber-bg px-3 py-2 text-left"
+                    : "rounded border border-arena-border bg-arena-panel px-3 py-2 text-left hover:border-arena-blue"
+                }
+              >
+                <span className="block text-xs font-semibold">{t.play.modeLocal}</span>
+                <span className="mt-0.5 block text-[10px] text-arena-muted">
+                  {t.play.modeLocalBody}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => reset({ mode: "ai" })}
+                className={
+                  mode === "ai"
+                    ? "rounded border border-arena-amber-border bg-arena-amber-bg px-3 py-2 text-left"
+                    : "rounded border border-arena-border bg-arena-panel px-3 py-2 text-left hover:border-arena-blue"
+                }
+              >
+                <span className="block text-xs font-semibold">{t.play.modeAi}</span>
+                <span className="mt-0.5 block text-[10px] text-arena-muted">
+                  {t.play.modeAiBody}
+                </span>
+              </button>
+              <div className="rounded border border-arena-border bg-arena-panel px-3 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="block text-xs font-semibold">{t.play.modeFriend}</span>
+                    <span className="mt-0.5 block text-[10px] text-arena-muted">
+                      {t.play.modeFriendBody}
+                    </span>
+                  </div>
+                  <span className="rounded bg-arena-elevated px-1.5 py-0.5 text-[10px] text-arena-muted">
+                    {t.play.roomComingSoon}
+                  </span>
+                </div>
+                <div className="mt-2 rounded bg-arena-elevated px-2 py-1 font-mono text-[10px] text-arena-muted">
+                  arena.gg/invite/rook-lab
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="mt-2 w-full rounded border border-arena-border px-2 py-1 text-[10px] font-semibold text-arena-muted disabled:cursor-not-allowed"
+                >
+                  {t.play.createRoom}
+                </button>
+                <p className="mt-1 text-[10px] text-arena-muted">{t.play.realtimeRooms}</p>
+              </div>
+            </div>
+          </div>
+
+          {mode === "ai" && (
+            <div className="sidebar-sec">
+              <div className="sidebar-sec-title">{t.play.aiSetup}</div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-arena-muted">
+                {t.play.difficulty}
+              </p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {(["beginner", "casual", "tactical"] as AiDifficulty[]).map(
+                  (difficulty) => (
+                    <button
+                      key={difficulty}
+                      type="button"
+                      onClick={() => reset({ mode: "ai", aiDifficulty: difficulty })}
+                      className={
+                        aiDifficulty === difficulty
+                          ? "rounded border border-arena-amber-border bg-arena-amber-bg px-2.5 py-1.5 text-left"
+                          : "rounded border border-arena-border bg-arena-panel px-2.5 py-1.5 text-left hover:border-arena-blue"
+                      }
+                    >
+                      <span className="block text-xs font-semibold">
+                        {t.play.aiDifficulties[difficulty]}
+                      </span>
+                      <span className="block text-[10px] text-arena-muted">
+                        {t.play.aiDifficultyNotes[difficulty]}
+                      </span>
+                    </button>
+                  ),
+                )}
+                <Link
+                  href="/pro"
+                  className="rounded border border-arena-border bg-arena-panel px-2.5 py-1.5 text-left hover:border-arena-gold"
+                >
+                  <span className="block text-xs font-semibold">{t.play.coachPro}</span>
+                  <span className="block text-[10px] text-arena-muted">
+                    {t.play.coachProLocked}
+                  </span>
+                </Link>
+              </div>
+              <p className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-wide text-arena-muted">
+                {t.play.side}
+              </p>
+              <div className="grid grid-cols-3 gap-1">
+                {(["white", "black", "random"] as PlayerSideChoice[]).map(
+                  (choice) => (
+                    <button
+                      key={choice}
+                      type="button"
+                      onClick={() => reset({ mode: "ai", sideChoice: choice })}
+                      className={
+                        sideChoice === choice
+                          ? "rounded border border-arena-amber-border bg-arena-amber-bg px-1 py-1 text-[10px] font-semibold"
+                          : "rounded border border-arena-border px-1 py-1 text-[10px] text-arena-muted hover:border-arena-blue"
+                      }
+                    >
+                      {t.play.sides[choice]}
+                    </button>
+                  ),
+                )}
+              </div>
+              <p className="mt-1.5 text-[10px] text-arena-muted">
+                {t.play.playerSideResolved(t.match.color[playerColor])}
+              </p>
+            </div>
+          )}
+
+          <div className="sidebar-sec">
             <div className="sidebar-sec-title">{t.play.yourRating}</div>
             <div className="font-mono text-2xl font-bold text-arena-text">{profile.rating}</div>
             <div className="text-xs text-arena-muted mt-1">{getRatingLevel(profile.rating)}</div>
           </div>
           <div className="sidebar-sec">
+            <div className="sidebar-sec-title">{t.economy.balance}</div>
+            <div className="flex items-baseline gap-2">
+              <div className="font-mono text-xl font-bold text-arena-gold">{arenaCoins}</div>
+              <div className="text-xs font-semibold text-arena-muted">{t.economy.abbr}</div>
+            </div>
+            <p className="mt-1 text-[10px] text-arena-muted">{t.economy.internalOnly}</p>
+          </div>
+          <div className="sidebar-sec">
             <div className="sidebar-sec-title">{t.play.opponent}</div>
-            <div className="font-semibold text-sm">{t.match.opponent.localRival}</div>
-            <div className="font-mono text-xs text-arena-muted mt-0.5">{RIVAL_RATING}</div>
+            <div className="font-semibold text-sm">{opponentName}</div>
+            <div className="font-mono text-xs text-arena-muted mt-0.5">{opponentRating}</div>
           </div>
           <div className="sidebar-sec flex-1">
             <div className="sidebar-sec-title">
               {profileKind === "account" ? t.play.accountRanked : t.play.localRanked}
             </div>
             <p className="text-xs text-arena-muted leading-relaxed">
-              {profileKind === "account" ? t.play.accountProgressAsWhite : t.play.progressAsWhite}
+              {mode === "ai"
+                ? t.play.progressVsAi
+                : profileKind === "account"
+                  ? t.play.accountProgressAsWhite
+                  : t.play.progressAsWhite}
             </p>
+            <Link
+              href="/pro"
+              className="mt-3 block rounded border border-arena-border bg-arena-panel px-3 py-2 text-xs hover:border-arena-gold"
+            >
+              <span className="block font-semibold">{t.play.proTeaserTitle}</span>
+              <span className="mt-0.5 block text-[10px] text-arena-muted">
+                {t.play.proTeaserBody}
+              </span>
+            </Link>
           </div>
           {gameRestored && (
             <div className="sidebar-sec bg-arena-amber-bg border-t border-arena-amber-border">
@@ -451,11 +740,11 @@ export default function PlayPage() {
           {/* Opponent bar */}
           <div className="w-full max-w-[480px] flex items-center gap-3 px-3.5 py-2.5 bg-arena-panel border border-arena-border rounded-lg">
             <div className="h-9 w-9 rounded-full flex items-center justify-center bg-arena-text text-arena-bg text-sm font-bold shrink-0">
-              LR
+              {opponentName.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm truncate">{t.match.opponent.localRival}</div>
-              <div className="font-mono text-xs text-arena-muted">{RIVAL_RATING}</div>
+              <div className="font-semibold text-sm truncate">{opponentName}</div>
+              <div className="font-mono text-xs text-arena-muted">{opponentRating}</div>
             </div>
           </div>
 
@@ -463,9 +752,9 @@ export default function PlayPage() {
           <div className="w-full max-w-[480px]">
             <Board
               fen={game.fen}
-              orientation="w"
+              orientation={mode === "ai" ? playerColor : "w"}
               squareStyles={squareStyles}
-              allowDragging={!gameOver}
+              allowDragging={playerCanMove}
               onSquareClick={handleSquareClick}
               onPieceDrop={applyMove}
             />
@@ -479,7 +768,9 @@ export default function PlayPage() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm truncate">
                 {profile.nickname}
-                <span className="ml-1.5 text-[10px] text-arena-muted font-normal">(you)</span>
+                <span className="ml-1.5 text-[10px] text-arena-muted font-normal">
+                  ({t.common.you})
+                </span>
               </div>
               <div className="font-mono text-xs text-arena-muted">{profile.rating}</div>
             </div>
@@ -518,7 +809,11 @@ export default function PlayPage() {
               {matchStatus}
             </p>
             <p className="text-xs text-arena-muted mt-1">
-              {status.state === "playing" ? t.play.playingHint : t.play.finishedHint}
+              {status.state === "playing"
+                ? aiThinking
+                  ? t.play.aiThinking
+                  : t.play.playingHint
+                : t.play.finishedHint}
             </p>
           </div>
 
@@ -543,6 +838,12 @@ export default function PlayPage() {
               <div className="font-mono text-xs text-arena-muted mt-0.5">
                 {completedMatch.ratingBefore} → {completedMatch.ratingAfter}
               </div>
+              {coinReward && (
+                <div className="mt-2 rounded border border-arena-amber-border bg-arena-amber-bg px-2 py-1 text-xs font-semibold text-arena-gold">
+                  {t.economy.matchReward(coinReward.amount)} · {coinReward.balance}{" "}
+                  {t.economy.abbr}
+                </div>
+              )}
               <Link
                 href={`/review/${completedMatch.id}`}
                 className="mt-2.5 block w-full rounded bg-arena-blue px-3 py-2 text-center text-xs font-semibold text-white hover:opacity-90"
@@ -575,7 +876,7 @@ export default function PlayPage() {
                 {t.play.resign}
               </button>
               <button
-                onClick={reset}
+                onClick={() => reset()}
                 disabled={gameOver && !completedMatch && !saveError}
                 className="flex-1 rounded bg-arena-blue px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >

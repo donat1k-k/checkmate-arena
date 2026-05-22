@@ -22,6 +22,7 @@ export type LeaderboardRow = {
   isYou: boolean;
   cityKey: DemoLeaderboardCityKey | null;
   city: string | null;
+  clanTag: string | null;
 };
 
 export type LeaderboardResult = {
@@ -67,6 +68,7 @@ function demoEntry(player: DemoLeaderboardPlayer): RankInput {
     isYou: false,
     cityKey: player.cityKey,
     city: null,
+    clanTag: player.clanTag,
   };
 }
 
@@ -93,6 +95,7 @@ export async function loadAccountLeaderboard(
     isYou: currentUserId !== null && row.id === currentUserId,
     cityKey: null,
     city: row.city,
+    clanTag: null,
   }));
 
   const entries =
@@ -117,6 +120,7 @@ export function buildDemoLeaderboard(
           isYou: true,
           cityKey: "guest",
           city: null,
+          clanTag: null,
         },
       ]
     : [];

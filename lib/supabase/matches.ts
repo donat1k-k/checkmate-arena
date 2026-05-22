@@ -70,6 +70,8 @@ type CompleteAccountMatchInput = {
   locale: Locale;
   outcome: GameOutcome;
   sanMoves: string[];
+  playerColor?: Color;
+  opponentNickname?: string;
 };
 
 type CompleteAccountMatchResult = {
@@ -84,9 +86,12 @@ function sanMovesFromRow(value: unknown): string[] {
     : [];
 }
 
-function resultFromOutcome(outcome: GameOutcome): MatchResult {
+function resultFromOutcome(
+  outcome: GameOutcome,
+  playerColor: Color,
+): MatchResult {
   if (outcome.state === "stalemate" || outcome.state === "draw") return "draw";
-  return outcome.winner === "w" ? "win" : "loss";
+  return outcome.winner === playerColor ? "win" : "loss";
 }
 
 function finishFromOutcome(outcome: GameOutcome): MatchFinish {
@@ -124,7 +129,9 @@ function rowResult(row: MatchRow, playerColor: Color): MatchResult {
 }
 
 function rowPlayerColor(row: MatchRow, playerId?: string): Color {
-  return playerId && row.black_player_id === playerId ? "b" : "w";
+  if (playerId && row.black_player_id === playerId) return "b";
+  if (!row.white_player_id && row.black_player_id) return "b";
+  return "w";
 }
 
 function toAccountMatch(row: MatchRow, playerId?: string): AccountMatch {
@@ -153,6 +160,8 @@ function toAccountMatch(row: MatchRow, playerId?: string): AccountMatch {
 function coachSourceMatch(
   profile: AccountProfile,
   input: CompleteAccountMatchInput,
+  playerColor: Color,
+  opponentNickname: string,
   result: MatchResult,
   ratingBefore: number,
   ratingAfter: number,
@@ -161,8 +170,8 @@ function coachSourceMatch(
     id: "account-coach-source",
     guestId: profile.id,
     guestNickname: profile.nickname,
-    opponentNickname: LOCAL_RIVAL_ID,
-    playerColor: "w",
+    opponentNickname,
+    playerColor,
     result,
     finish: finishFromOutcome(input.outcome),
     ratingBefore,
@@ -220,32 +229,34 @@ export async function recordAccountMatch(
   profile: AccountProfile,
   input: CompleteAccountMatchInput,
 ): Promise<CompleteAccountMatchResult> {
-  const result = resultFromOutcome(input.outcome);
+  const playerColor = input.playerColor ?? "w";
+  const opponentNickname = input.opponentNickname ?? LOCAL_RIVAL_ID;
+  const result = resultFromOutcome(input.outcome, playerColor);
   const ratingBefore = profile.rating;
   const ratingAfter = Math.max(0, ratingBefore + ratingDelta(result));
   const nextProfile = nextAccountProfile(profile, result, ratingAfter);
   const finishedAt = new Date().toISOString();
+  const isWhite = playerColor === "w";
+  const ratingChange = ratingAfter - ratingBefore;
+  const playerWon =
+    (input.outcome.state === "checkmate" || input.outcome.state === "resigned") &&
+    input.outcome.winner === playerColor;
 
   const { data, error: matchError } = await supabase
     .from("matches")
     .insert({
-      white_player_id: profile.id,
-      black_player_id: null,
-      white_nickname: profile.nickname,
-      black_nickname: LOCAL_RIVAL_ID,
+      white_player_id: isWhite ? profile.id : null,
+      black_player_id: isWhite ? null : profile.id,
+      white_nickname: isWhite ? profile.nickname : opponentNickname,
+      black_nickname: isWhite ? opponentNickname : profile.nickname,
       status: databaseStatus(input.outcome),
       result: databaseResult(input.outcome),
-      winner_id:
-        input.outcome.state === "checkmate" || input.outcome.state === "resigned"
-          ? input.outcome.winner === "w"
-            ? profile.id
-            : null
-          : null,
+      winner_id: playerWon ? profile.id : null,
       moves: input.sanMoves,
       final_fen: input.finalFen,
       time_control: "unlimited",
-      rating_change_white: ratingAfter - ratingBefore,
-      rating_change_black: ratingBefore - ratingAfter,
+      rating_change_white: isWhite ? ratingChange : -ratingChange,
+      rating_change_black: isWhite ? -ratingChange : ratingChange,
       created_at: input.createdAt,
       finished_at: finishedAt,
     })
@@ -258,7 +269,15 @@ export async function recordAccountMatch(
 
   const savedMatch = toAccountMatch(data as MatchRow, profile.id);
   const review = buildDemoCoachReview(
-    coachSourceMatch(profile, input, result, ratingBefore, ratingAfter),
+    coachSourceMatch(
+      profile,
+      input,
+      playerColor,
+      opponentNickname,
+      result,
+      ratingBefore,
+      ratingAfter,
+    ),
     input.locale,
   );
   const savedReview = await saveAccountReview(supabase, savedMatch.id, review);

@@ -12,9 +12,29 @@ import {
   type LeaderboardRow,
 } from "@/lib/supabase/leaderboard";
 
+type CityFilter = "global" | "novosibirsk" | "almaty" | "moscow" | "astana";
+
+const CITY_FILTERS: CityFilter[] = [
+  "global",
+  "novosibirsk",
+  "almaty",
+  "moscow",
+  "astana",
+];
+
 function cityLabel(row: LeaderboardRow, t: AppTranslations): string {
   if (row.cityKey) return t.leaderboard.cities[row.cityKey];
   return row.city ?? "—";
+}
+
+function rowMatchesCity(row: LeaderboardRow, city: CityFilter): boolean {
+  if (city === "global") return true;
+  if (row.cityKey) return row.cityKey === city;
+  return row.city?.trim().toLowerCase() === city;
+}
+
+function filterLabel(city: CityFilter, t: AppTranslations): string {
+  return city === "global" ? t.leaderboard.globalCity : t.leaderboard.cities[city];
 }
 
 export default function LeaderboardPage() {
@@ -23,6 +43,7 @@ export default function LeaderboardPage() {
   const [isAccount, setIsAccount] = useState(false);
   const [hasGuestProfile, setHasGuestProfile] = useState(false);
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [selectedCity, setSelectedCity] = useState<CityFilter>("global");
 
   useEffect(() => {
     let active = true;
@@ -62,7 +83,14 @@ export default function LeaderboardPage() {
     };
   }, []);
 
-  const topRows = loaded ? rows.slice(0, 3) : [];
+  const filteredRows = loaded
+    ? rows.filter((row) => rowMatchesCity(row, selectedCity))
+    : [];
+  const spotlightCity = selectedCity === "global" ? "novosibirsk" : selectedCity;
+  const citySpotlightRows = loaded
+    ? rows.filter((row) => rowMatchesCity(row, spotlightCity)).slice(0, 3)
+    : [];
+  const topRows = filteredRows.slice(0, 3);
   const youRow = loaded ? rows.find((r) => r.isYou) : null;
 
   return (
@@ -107,6 +135,28 @@ export default function LeaderboardPage() {
           </Link>
         )}
       </div>
+
+      <section className="rounded-lg border border-arena-border bg-arena-panel p-4">
+        <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+          {t.leaderboard.cityFilter}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {CITY_FILTERS.map((city) => (
+            <button
+              key={city}
+              type="button"
+              onClick={() => setSelectedCity(city)}
+              className={
+                city === selectedCity
+                  ? "rounded-md border border-arena-amber-border bg-arena-amber-bg px-3 py-1.5 text-sm font-semibold text-arena-blue"
+                  : "rounded-md border border-arena-border px-3 py-1.5 text-sm text-arena-muted hover:border-arena-blue hover:text-arena-text"
+              }
+            >
+              {filterLabel(city, t)}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* ── Podium ── */}
       {topRows.length >= 3 && (
@@ -153,6 +203,80 @@ export default function LeaderboardPage() {
         </div>
       )}
 
+      <section className="grid gap-3 lg:grid-cols-[1fr_0.8fr_0.8fr]">
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-4">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {filterLabel(spotlightCity, t)}
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">{t.leaderboard.citySpotlight}</h2>
+          <p className="mt-1 text-xs text-arena-muted">{t.leaderboard.citySpotlightBody}</p>
+          <div className="mt-3 grid gap-2">
+            {!loaded ? (
+              <p className="rounded bg-arena-elevated px-3 py-2 text-sm text-arena-muted">
+                {t.leaderboard.loading}
+              </p>
+            ) : citySpotlightRows.length === 0 ? (
+              <p className="rounded bg-arena-elevated px-3 py-2 text-sm text-arena-muted">
+                {t.leaderboard.noCityPlayers}
+              </p>
+            ) : (
+              citySpotlightRows.map((row) => (
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between gap-2 rounded bg-arena-elevated px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{row.nickname}</p>
+                    {row.clanTag && (
+                      <p className="font-mono text-[10px] text-arena-muted">[{row.clanTag}]</p>
+                    )}
+                  </div>
+                  <span className="font-mono text-sm font-bold">{row.rating}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-4">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {t.leaderboard.clans}
+          </p>
+          <p className="mt-2 text-sm text-arena-muted">{t.leaderboard.clanBody}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled
+              className="rounded border border-arena-border px-3 py-1.5 text-xs font-semibold text-arena-muted disabled:cursor-not-allowed"
+            >
+              {t.leaderboard.joinClan}
+            </button>
+            <button
+              type="button"
+              disabled
+              className="rounded border border-arena-border px-3 py-1.5 text-xs font-semibold text-arena-muted disabled:cursor-not-allowed"
+            >
+              {t.leaderboard.createClan}
+            </button>
+          </div>
+          <p className="mt-2 text-[10px] text-arena-muted">{t.leaderboard.comingSoon}</p>
+        </article>
+
+        <Link
+          href="/pro"
+          className="rounded-lg border border-arena-amber-border bg-arena-amber-bg p-4 hover:border-arena-gold"
+        >
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+            {t.common.pro}
+          </p>
+          <p className="mt-2 text-sm font-semibold">{t.leaderboard.proCtaTitle}</p>
+          <p className="mt-1 text-xs text-arena-muted">{t.leaderboard.proCtaBody}</p>
+          <p className="mt-3 text-xs font-semibold text-arena-blue">
+            {t.leaderboard.proCtaLink}
+          </p>
+        </Link>
+      </section>
+
       {/* ── Full table ── */}
       <section className="overflow-hidden rounded-lg border border-arena-border bg-arena-panel">
         {!loaded ? (
@@ -174,7 +298,7 @@ export default function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-arena-border">
-                {rows.map((row, idx) => (
+                {filteredRows.map((row, idx) => (
                   <tr
                     key={row.id}
                     className={
@@ -189,6 +313,11 @@ export default function LeaderboardPage() {
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{row.nickname}</span>
+                        {row.clanTag && (
+                          <span className="rounded bg-arena-elevated px-1.5 py-0.5 font-mono text-[10px] text-arena-muted">
+                            [{row.clanTag}]
+                          </span>
+                        )}
                         {row.isYou && (
                           <span className="rounded bg-arena-blue px-1.5 py-0.5 text-xs font-medium text-white">
                             {t.common.you}

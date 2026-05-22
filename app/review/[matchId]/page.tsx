@@ -88,6 +88,16 @@ function finishLabel(
   return t.match.finish.checkmate;
 }
 
+function boardScore(result: LocalMatch["result"], playerColor: LocalMatch["playerColor"]): string {
+  if (result === "draw") return "1/2 - 1/2";
+
+  const whiteWon =
+    (result === "win" && playerColor === "w") ||
+    (result === "loss" && playerColor === "b");
+
+  return whiteWon ? "1 - 0" : "0 - 1";
+}
+
 type TimelineStrings = AppTranslations["review"]["timeline"];
 type TrainingStrings = AppTranslations["review"]["training"];
 type AskMoveStrings = AppTranslations["review"]["askMove"];
@@ -506,14 +516,14 @@ export default function ReviewPage() {
   const review = localMatch
     ? buildDemoCoachReview(localMatch, locale)
     : accountReviewView(accountMatch as AccountMatch, accountReview, locale);
-  const opponentName = getOpponentDisplayName(match.opponentNickname, t.match.opponent.localRival);
+  const opponentName = getOpponentDisplayName(match.opponentNickname, t.match.opponent);
   const isAccount = accountMatch !== null;
 
   const playerNickname = localMatch?.guestNickname ?? accountMatch?.playerNickname ?? "Player";
   const opponentInitial = opponentName[0]?.toUpperCase() ?? "O";
   const playerInitial = playerNickname[0]?.toUpperCase() ?? "P";
 
-  const resultStr = match.result === "win" ? "1 – 0" : match.result === "loss" ? "0 – 1" : "½ – ½";
+  const resultStr = boardScore(match.result, match.playerColor);
   const resultBadgeClass = match.result === "win"
     ? "bg-arena-win/10 border border-arena-win/30 text-arena-win"
     : match.result === "loss"
@@ -926,6 +936,20 @@ export default function ReviewPage() {
                 </p>
               </div>
             </div>
+
+            <Link
+              href="/pro"
+              className="rounded-lg border border-arena-amber-border bg-arena-amber-bg p-4 hover:border-arena-gold"
+            >
+              <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">
+                {t.review.proCta.eyebrow}
+              </p>
+              <p className="mt-2 text-sm font-semibold">{t.review.proCta.title}</p>
+              <p className="mt-1 text-xs text-arena-muted">{t.review.proCta.body}</p>
+              <p className="mt-3 text-xs font-semibold text-arena-blue">
+                {t.review.proCta.link}
+              </p>
+            </Link>
 
             {/* Coach insights */}
             {review.insights.length > 0 && (

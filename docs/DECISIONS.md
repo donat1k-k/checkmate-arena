@@ -343,3 +343,45 @@ SiteShell теперь использует `usePathname()` и передаёт 
 
 ### border-l-arena-* через Tailwind purge
 В Tailwind v4 arbitrary values в JIT работают без safelist, но именованные классы типа `border-l-arena-win` требуют, чтобы строка целиком присутствовала в исходниках. `momentBorderClass()` возвращает полные строки (`"border-l-arena-win"`, `"border-l-yellow-400"` и т.д.) — не конкатенирует их из частей. Это важно для корректной работы Tailwind purge.
+
+## 2026-05-22 — Этап 8.0: AI Opponent + monetization/economy/social shell
+
+### AI opponent локальный и эвристический
+- `/play` получил `vs AI` без LLM, Stockfish и новых тяжёлых зависимостей.
+  `lib/chess/ai.ts` строит кандидатов только из legal moves `chess.js` по
+  текущему FEN и возвращает ход в существующий `ChessGame`.
+- Сложности намеренно простые:
+  - `Beginner` — random legal move;
+  - `Casual` — random из взятий/шахов, fallback к legal move;
+  - `Tactical` — immediate эвристика material gain + check/capture/promotion.
+- `Coach Pro` в play selector — только premium teaser. Сильный движок или
+  отдельный AI opponent backend сюда не добавлялись.
+
+### Цвет игрока без миграции schema
+- Guest match уже имел `playerColor`; Stage 8.0 передаёт его в
+  `recordCompletedMatch()` вместо старого fixed-white результата.
+- Account match пишет profile id/nickname в white или black slot существующей
+  `matches` schema по выбранному цвету. Rating delta раскладывается в
+  `rating_change_white/black`, а public review умеет вывести black-player AI
+  match без новой колонки.
+- Local hot-seat сохраняет прежнюю семантику: progress следует за белыми.
+
+### Pro/Ultra — визуальная монетизация
+- `/pro` показывает Free/Pro/Ultra comparison и store teaser только как
+  monetization shell. Upgrade buttons disabled, billing явно `coming soon`.
+- Реальные платежи, Stripe, premium entitlements, checkout и денежный store
+  сознательно отсутствуют.
+
+### Arena Coins — demo/internal currency
+- Arena Coins живут в отдельном browser-local key через `lib/demo/economy.ts`.
+  Завершённый match id хранится в reward ledger, чтобы `+10 AC` не начислялись
+  повторно из-за rerender/reload.
+- AC не имеют денежной ценности, не меняют Supabase schema и пока служат
+  визуальным retention/economy сигналом для profile/home/play/store teaser.
+
+### Social shell без realtime
+- City filter, city spotlight и clan tags рендерятся поверх leaderboard rows и
+  demo data. `Join clan`/`Create clan` disabled.
+- `Play with friend by link` показывает fake invite surface и disabled room CTA.
+  Настоящие rooms, WebSockets и multiplayer protocol отложены до отдельного
+  realtime/backend этапа.
