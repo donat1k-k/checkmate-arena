@@ -525,3 +525,30 @@ QA + точечный hardening без нового этапа.
 
 ### Готовность к Deploy 1B
 Да. Health endpoint работает, build чистый, секреты не утекают в git.
+
+## Deploy 1B — Docker production packaging. Статус: завершён (2026-05-22)
+
+### Сделано
+- `.dockerignore` — исключает `node_modules`, `.next`, `.env*.local`, `.git`, `docs`, `.claude`,
+  чтобы эти файлы не попадали в Docker build context.
+- `Dockerfile` — 3-stage production build:
+  - Stage `deps`: `npm ci --omit=dev` → только production-зависимости.
+  - Stage `builder`: `npm ci` + `npm run build` → полная сборка Next.js.
+  - Stage `runner`: `node:20-alpine`, копирует `node_modules` из `deps`, `.next` и `public`
+    из `builder`, `package.json`. Слушает порт 3000. Запускает через `npm run start`.
+  - ENV-переменные в образ не зашиты; передаются через `--env-file` или платформенный secrets
+    manager при реальном деплое.
+
+### Команды и проверки
+- `npm run build` — OK (все 13 routes, TypeScript OK, build 5.6s).
+- `git diff --check` — OK (без whitespace-ошибок).
+- `docker build` — Docker не установлен в данном окружении; файлы корректны синтаксически,
+  build нужно проверить на машине с Docker или в CI.
+
+### Что проверить вручную (на машине с Docker)
+1. `docker build -t checkmate-arena .` — должен успешно пройти все три стадии.
+2. `docker run --env-file .env.local -p 3000:3000 checkmate-arena` — приложение стартует.
+3. `GET http://localhost:3000/api/health` → `{ "ok": true, "service": "checkmate-arena" }`.
+4. `.env.local` не попал в image: `docker run checkmate-arena ls -la | grep env` — пусто.
+5. `node_modules` и `.next` не попали в Docker context (проверить вывод `docker build`
+   на строки `COPY . .` — не должно быть лишних файлов из `.dockerignore`).

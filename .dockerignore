@@ -1,0 +1,24 @@
+# Dependencies — rebuilt inside container
+node_modules
+
+# Build output — rebuilt by docker build
+.next
+out
+build
+
+# Local secrets — never in Docker context
+.env.local
+.env*.local
+
+# Version control
+.git
+.gitignore
+
+# Dev tooling
+.claude
+docs
+*.md
+
+# OS artifacts
+.DS_Store
+Thumbs.db
