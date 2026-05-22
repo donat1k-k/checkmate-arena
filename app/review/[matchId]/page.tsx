@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Chess } from "chess.js";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import ReplayBoard from "@/components/chess/ReplayBoard";
 import {
@@ -27,6 +28,7 @@ import {
   saveAiAnalysis,
   type AccountReview,
   type AiAnalysis,
+  type AiKeyMoment,
 } from "@/lib/supabase/reviews";
 import type { CoachApiResponse } from "@/app/api/coach/route";
 import type { MoveQuestionResponse } from "@/app/api/coach/move/route";
@@ -87,6 +89,201 @@ function finishLabel(
   return t.match.finish.checkmate;
 }
 
+type TimelineStrings = AppTranslations["review"]["timeline"];
+type TrainingStrings = AppTranslations["review"]["training"];
+
+type TrainingMomentState = {
+  userAnswer: string;
+  revealed: boolean;
+  aiResult: { answer: string; betterPlan: string; trainingTip: string } | null;
+  aiLoading: boolean;
+  aiError: string | null;
+};
+
+function momentTypeBadgeClass(type: AiKeyMoment["type"]): string {
+  switch (type) {
+    case "good": return "border-arena-win/50 bg-arena-win/10 text-arena-win";
+    case "inaccuracy": return "border-yellow-500/50 bg-yellow-500/10 text-yellow-400";
+    case "mistake": return "border-arena-loss/50 bg-arena-loss/10 text-arena-loss";
+    case "critical": return "border-red-500/60 bg-red-500/15 text-red-400";
+    case "turning_point": return "border-arena-blue/50 bg-arena-blue/10 text-arena-blue";
+  }
+}
+
+function KeyMomentCard({
+  moment,
+  tl,
+  onGoToMove,
+}: {
+  moment: AiKeyMoment;
+  tl: TimelineStrings;
+  onGoToMove: () => void;
+}) {
+  const badgeClass = momentTypeBadgeClass(moment.type);
+  const typeLabel = tl.types[moment.type] ?? moment.type;
+
+  return (
+    <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+            {typeLabel}
+          </span>
+          {moment.san && (
+            <span className="font-mono text-sm font-medium">
+              {moment.ply}. {moment.san}
+            </span>
+          )}
+          <span className="font-medium">{moment.title}</span>
+        </div>
+        <button
+          onClick={onGoToMove}
+          className="shrink-0 rounded-md border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
+        >
+          {tl.goToMove}
+        </button>
+      </div>
+      <p className="mt-2 text-sm text-arena-muted">{moment.comment}</p>
+      {moment.betterPlan && (
+        <p className="mt-1 text-xs text-arena-muted">
+          <span className="font-medium text-foreground">{tl.betterPlan}:</span>{" "}
+          <span className="font-mono">{moment.betterPlan}</span>
+        </p>
+      )}
+      {moment.trainingTip && (
+        <p className="mt-1 text-xs text-arena-muted">
+          <span className="font-medium text-foreground">{tl.trainingTip}:</span>{" "}
+          {moment.trainingTip}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TrainingMomentCard({
+  moment,
+  state,
+  tr,
+  tl,
+  onGoToMove,
+  onAnswerChange,
+  onReveal,
+  onAskAi,
+}: {
+  moment: AiKeyMoment;
+  state: TrainingMomentState;
+  tr: TrainingStrings;
+  tl: TimelineStrings;
+  onGoToMove: () => void;
+  onAnswerChange: (v: string) => void;
+  onReveal: () => void;
+  onAskAi: () => void;
+}) {
+  const badgeClass = momentTypeBadgeClass(moment.type);
+  const typeLabel = tl.types[moment.type] ?? moment.type;
+  const question = moment.practiceQuestion ?? tr.howToImprove;
+
+  return (
+    <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+          {typeLabel}
+        </span>
+        {moment.san && (
+          <span className="font-mono text-sm font-medium">
+            {moment.ply}. {moment.san}
+          </span>
+        )}
+        <span className="font-medium">{moment.title}</span>
+        <button
+          onClick={onGoToMove}
+          className="ml-auto rounded-md border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
+        >
+          {tr.practiceThis}
+        </button>
+      </div>
+
+      <p className="mt-3 text-sm font-medium">{question}</p>
+
+      <div className="mt-2 flex flex-col gap-2">
+        <textarea
+          value={state.userAnswer}
+          onChange={(e) => onAnswerChange(e.target.value.slice(0, 500))}
+          placeholder={tr.placeholder}
+          disabled={state.aiLoading}
+          rows={2}
+          className="w-full resize-none rounded-md border border-arena-border bg-arena-panel px-3 py-2 text-sm placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        <div className="flex flex-wrap gap-2">
+          {!state.revealed && (
+            <button
+              onClick={onReveal}
+              className="rounded-md border border-arena-border px-3 py-1.5 text-xs font-medium hover:border-arena-gold hover:text-arena-gold"
+            >
+              {tr.showCoachAnswer}
+            </button>
+          )}
+          <button
+            onClick={onAskAi}
+            disabled={!state.userAnswer.trim() || state.aiLoading}
+            className="rounded-md bg-arena-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {state.aiLoading ? tr.checking : tr.askAiAnswer}
+          </button>
+        </div>
+      </div>
+
+      {state.revealed && (
+        <div className="mt-3 rounded-md border border-arena-gold/30 bg-arena-gold/5 p-3">
+          <p className="text-xs font-medium text-arena-gold">{tr.coachAnswer}</p>
+          {moment.expectedAnswer && (
+            <p className="mt-1 text-sm">{moment.expectedAnswer}</p>
+          )}
+          {moment.betterPlan && (
+            <p className="mt-1 text-xs text-arena-muted">
+              <span className="font-medium text-foreground">{tl.betterPlan}:</span>{" "}
+              <span className="font-mono">{moment.betterPlan}</span>
+            </p>
+          )}
+          {moment.trainingTip && (
+            <p className="mt-1 text-xs text-arena-muted">
+              <span className="font-medium text-foreground">{tl.trainingTip}:</span>{" "}
+              {moment.trainingTip}
+            </p>
+          )}
+        </div>
+      )}
+
+      {state.aiError && (
+        <p className="mt-2 text-xs text-arena-muted">
+          {state.aiError === "not_configured"
+            ? "AI Coach not configured."
+            : "AI unavailable right now."}
+        </p>
+      )}
+
+      {state.aiResult && (
+        <div className="mt-3 rounded-md border border-arena-border bg-arena-panel p-3">
+          <p className="text-xs font-medium text-arena-gold">{tr.aiFeedback}</p>
+          <p className="mt-1 text-sm">{state.aiResult.answer}</p>
+          {state.aiResult.betterPlan && (
+            <p className="mt-1 text-xs text-arena-muted">
+              <span className="font-medium text-foreground">{tl.betterPlan}:</span>{" "}
+              <span className="font-mono">{state.aiResult.betterPlan}</span>
+            </p>
+          )}
+          {state.aiResult.trainingTip && (
+            <p className="mt-1 text-xs text-arena-muted">
+              <span className="font-medium text-foreground">{tl.trainingTip}:</span>{" "}
+              {state.aiResult.trainingTip}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReviewPage() {
   const { locale, t } = usePreferences();
   const params = useParams<{ matchId?: string | string[] }>();
@@ -105,6 +302,7 @@ export default function ReviewPage() {
   const [selectedPly, setSelectedPly] = useState(0);
   const [selectedSan, setSelectedSan] = useState<string | null>(null);
   const [selectedFen, setSelectedFen] = useState("");
+  const [jumpToPly, setJumpToPly] = useState<number | undefined>(undefined);
   const [moveQuestion, setMoveQuestion] = useState("");
   const [moveQLoading, setMoveQLoading] = useState(false);
   const [moveQError, setMoveQError] = useState<string | null>(null);
@@ -123,6 +321,8 @@ export default function ReviewPage() {
       trainingTip: string;
     }>
   >([]);
+
+  const [trainingState, setTrainingState] = useState<Record<number, TrainingMomentState>>({});
 
   useEffect(() => {
     let active = true;
@@ -205,9 +405,11 @@ export default function ReviewPage() {
           bestAlternative: data.bestAlternative,
           whyImportant: data.whyImportant,
           trainNext: data.trainNext,
+          ...(data.keyMoments ? { keyMoments: data.keyMoments } : {}),
         };
         setAiCoach(result);
         setAiCoachSaved(false);
+        setTrainingState({});
 
         if (currentAccountMatch && matchId) {
           const supabase = createClient();
@@ -298,11 +500,26 @@ export default function ReviewPage() {
     }
   }
 
+  const match = localMatch ?? accountMatch;
+
+  const replayPositions = useMemo(() => {
+    const chess = new Chess();
+    const fens: string[] = [chess.fen()];
+    for (const san of match?.sanMoves ?? []) {
+      try {
+        chess.move(san);
+        fens.push(chess.fen());
+      } catch {
+        break;
+      }
+    }
+    return fens;
+  }, [match?.sanMoves]);
+
   if (!loaded) {
     return <p className="py-10 text-sm text-arena-muted">{t.review.loading}</p>;
   }
 
-  const match = localMatch ?? accountMatch;
   if (!match) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
@@ -426,12 +643,129 @@ export default function ReviewPage() {
             keyMovePly={aiCoach?.keyMovePly}
             keyMoveSan={aiCoach?.keyMoveSan}
             keyMoveComment={aiCoach?.keyMoveComment}
+            jumpToPly={jumpToPly}
+            onJumpApplied={() => setJumpToPly(undefined)}
             onPlyChange={(ply, san, fen) => {
               setSelectedPly(ply);
               setSelectedSan(san);
               setSelectedFen(fen);
             }}
           />
+        </section>
+      )}
+
+      {match.sanMoves.length > 0 && (
+        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="text-sm font-medium text-arena-gold">
+            {t.review.timeline.eyebrow}
+          </p>
+          {!aiCoach?.keyMoments?.length ? (
+            <p className="mt-3 text-sm text-arena-muted">
+              {t.review.timeline.noKeyMoments}
+            </p>
+          ) : (
+            <div className="mt-4 flex flex-col gap-3">
+              {aiCoach.keyMoments.map((moment, idx) => (
+                <KeyMomentCard
+                  key={idx}
+                  moment={moment}
+                  tl={t.review.timeline}
+                  onGoToMove={() => setJumpToPly(moment.ply)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {match.sanMoves.length > 0 && (
+        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="text-sm font-medium text-arena-gold">
+            {t.review.training.eyebrow}
+          </p>
+          {(() => {
+            const trainingMoments = aiCoach?.keyMoments?.filter((m) =>
+              ["mistake", "critical", "inaccuracy", "turning_point"].includes(m.type),
+            ) ?? [];
+            if (trainingMoments.length === 0) {
+              return (
+                <p className="mt-3 text-sm text-arena-muted">
+                  {t.review.training.noTrainingMoments}
+                </p>
+              );
+            }
+            return (
+              <div className="mt-4 flex flex-col gap-5">
+                {trainingMoments.map((moment, idx) => {
+                  const state: TrainingMomentState = trainingState[moment.ply] ?? {
+                    userAnswer: "",
+                    revealed: false,
+                    aiResult: null,
+                    aiLoading: false,
+                    aiError: null,
+                  };
+                  const patchState = (patch: Partial<TrainingMomentState>) =>
+                    setTrainingState((prev) => ({
+                      ...prev,
+                      [moment.ply]: { ...state, ...patch },
+                    }));
+                  return (
+                    <TrainingMomentCard
+                      key={idx}
+                      moment={moment}
+                      state={state}
+                      tr={t.review.training}
+                      tl={t.review.timeline}
+                      onGoToMove={() => setJumpToPly(moment.ply)}
+                      onAnswerChange={(v) => patchState({ userAnswer: v })}
+                      onReveal={() => patchState({ revealed: true })}
+                      onAskAi={async () => {
+                        const q = state.userAnswer.trim();
+                        if (!q) return;
+                        patchState({ aiLoading: true, aiError: null, aiResult: null });
+                        try {
+                          const fen = replayPositions[moment.ply] ?? replayPositions[replayPositions.length - 1] ?? "";
+                          const res = await fetch("/api/coach/move", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              locale,
+                              sanMoves: match.sanMoves,
+                              selectedPly: moment.ply,
+                              selectedSan: moment.san ?? null,
+                              selectedFen: fen,
+                              existingAnalysis: aiCoach
+                                ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
+                                : null,
+                              question: q,
+                              result: match.result,
+                              playerColor: match.playerColor,
+                              moveCount: match.moveCount,
+                            }),
+                          });
+                          const data = (await res.json()) as MoveQuestionResponse;
+                          if (data.available) {
+                            patchState({
+                              aiResult: {
+                                answer: data.answer,
+                                betterPlan: data.betterPlan,
+                                trainingTip: data.trainingTip,
+                              },
+                              aiLoading: false,
+                            });
+                          } else {
+                            patchState({ aiError: data.reason, aiLoading: false });
+                          }
+                        } catch {
+                          patchState({ aiError: "unavailable", aiLoading: false });
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })()}
         </section>
       )}
 

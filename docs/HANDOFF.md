@@ -910,3 +910,69 @@ create policy reviews_update_participant
 ### Следующий логичный этап
 - **5.1**: `finish_reason` колонка в `matches` для корректного label ничьих в review.
 - **5.2**: Сохранение move questions в DB (если нужна история между сессиями).
+
+## Этап 5.1/5.2 — Coach Timeline + Training from Mistakes. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. `lib/supabase/reviews.ts`** — новые типы:
+- `AiKeyMomentType = "good" | "inaccuracy" | "mistake" | "critical" | "turning_point"`
+- `AiKeyMoment { ply, san?, type, title, comment, betterPlan?, trainingTip?, practiceQuestion?, expectedAnswer? }`
+- `keyMoments?: AiKeyMoment[]` добавлен в `AiAnalysis`
+- `toAiAnalysis()` парсит и фильтрует `keyMoments` из JSONB; невалидные элементы отбрасываются; старые объекты без поля не ломаются
+
+**2. `lib/ai/coachPrompt.ts`** — расширена JSON schema:
+- EN и RU схемы теперь просят AI возвращать `keyMoments: 3-6 объектов`
+- Правила для AI: не упоминать Stockfish, указывать ply только если уверен, для mistake/critical желательно `practiceQuestion`/`expectedAnswer`
+
+**3. `app/api/coach/route.ts`**:
+- `CoachApiSuccess` расширен `keyMoments?: AiKeyMoment[]`
+- helper `filterKeyMoments()` валидирует каждый элемент; кривые keyMoments не ломают основной анализ
+- `max_tokens`: 600 → 900 (keyMoments объёмнее)
+
+**4. `components/chess/ReplayBoard.tsx`** — prop `jumpToPly?`:
+- `jumpToPly?: number` и `onJumpApplied?: () => void` добавлены как опциональные props
+- `useEffect([jumpToPly])` применяет прыжок и вызывает `onJumpApplied()` для сброса
+- Все существующие пути навигации не затронуты
+
+**5. `lib/i18n/translations.ts`** — новые namespaces в EN и RU:
+- `review.timeline` — eyebrow, noKeyMoments, types (5 значений), betterPlan, trainingTip, goToMove
+- `review.training` — eyebrow, noTrainingMoments, practiceThis, yourAnswer, placeholder, showCoachAnswer, askAiAnswer, coachAnswer, aiFeedback, checking, howToImprove
+
+**6. `app/review/[matchId]/page.tsx`** — Coach Timeline + Training:
+- Два новых helper-компонента: `KeyMomentCard` и `TrainingMomentCard` (определены вне ReviewPage)
+- `jumpToPly` state: нажатие "Перейти к ходу" в KeyMomentCard/TrainingMomentCard → передаётся в ReplayBoard → ReplayBoard прыгает и сбрасывает через `onJumpApplied`
+- `replayPositions` useMemo: вычисляется один раз на `match.sanMoves`, используется для FEN в тренировочных вопросах
+- `trainingState: Record<number, TrainingMomentState>` — session-only, сбрасывается при Regenerate
+- Coach Timeline секция: после Replay, показывается при `aiCoach?.keyMoments?.length > 0`
+- Training секция: после Timeline, показывает моменты с type ∈ {mistake, critical, inaccuracy, turning_point}
+- Training "Ask AI" вызывает существующий `/api/coach/move` с fen из replayPositions
+- keyMoments сохраняются в Supabase внутри `ai_analysis JSONB` без миграции
+
+### Границы этапа
+- Supabase schema не менялась; keyMoments в существующем `ai_analysis jsonb`
+- Training state session-only; ответы пользователей не пишутся в DB
+- Полный UX redesign — отдельный этап
+- Full QA-проход — отдельный этап после функционального блока
+
+### Команды и проверки
+- `npm run build` — OK (14 routes, TypeScript OK).
+- `git diff --check` — OK (только LF→CRLF warnings, стандарт для репо).
+- Browser tool недоступен для localhost — см. ручной чеклист ниже.
+
+### Что проверить вручную
+1. `npm run dev` → guest review → нажать "Generate AI Coach" → появился блок "Key moments" с карточками
+2. Нажать "Go to move" на карточке → ReplayBoard переходит к нужному ply; Ask AI о ходу обновляется
+3. Блок "Training from mistakes" виден только если есть mistake/critical/inaccuracy/turning_point
+4. Ввести ответ в training → "Show coach answer" → expectedAnswer/betterPlan показаны
+5. "Ask AI about my answer" → 3 карточки AI ответа рядом с тренировочным моментом
+6. F5 → training state сброшен, keyMoments для guest пропали (ожидаемо)
+7. Account review: keyMoments сохранились в Supabase, после reload подтягиваются
+8. Старый AI analysis без keyMoments → timeline/training показывают noKeyMoments/noTrainingMoments
+9. Без AI env → "notConfigured" текст, страница не падает
+10. RU/EN переключение → все строки timeline и training следуют языку
+
+### Следующий логичный этап
+- **QA-проход** — полный функциональный тест всех экранов после функционального блока
+- **Full UX redesign** — отдельный этап (не разрабатывалось в 5.1/5.2 согласно ограничениям)
+- **finish_reason** — колонка в `matches` для корректного label ничьих в review

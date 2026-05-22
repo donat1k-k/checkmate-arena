@@ -275,3 +275,23 @@ ReplayBoard остался uncontrolled (сам хранит `currentPly`). До
 
 ### Валидация вопроса
 Клиент: срез строки до 500 символов при вводе. Сервер: проверяет непустой вопрос (400) и длину > 500 (400). UI показывает соответствующие i18n строки без сырых ошибок.
+
+## 2026-05-22 — Этап 5.1/5.2: Coach Timeline + Training from Mistakes
+
+### keyMoments в ai_analysis JSONB без миграции
+`keyMoments` — опциональный массив внутри существующего `ai_analysis jsonb`. Никакой SQL-миграции не требуется. Старые строки без поля читаются нормально (`toAiAnalysis` возвращает `undefined` для keyMoments). Это то же решение, что и для `keyMovePly/keyMoveSan/keyMoveComment` в Stage 4.4 — JSONB гибкость именно для таких добавлений.
+
+### jumpToPly как одноразовый hint в ReplayBoard
+ReplayBoard остался uncontrolled (хранит `currentPly` сам). `jumpToPly` prop — это «запрос на прыжок»: ReplayBoard применяет его через `useEffect` и вызывает `onJumpApplied()` для сброса в родителе. Такой подход позволяет повторно прыгнуть к той же позиции (state сбрасывается в `undefined`, следующий клик создаёт новый `jumpToPly` с тем же значением). Все существующие пути навигации в ReplayBoard не затронуты.
+
+### Training state session-only
+Пользовательские ответы в тренировочных карточках хранятся в React state (`trainingState: Record<number, TrainingMomentState>`). После reload они пропадают. Причины: тренировка — интерактивная сессионная механика; произвольное число ответов на матч не вписывается в текущую JSONB схему `ai_analysis`; нет смысла засорять `match_reviews` нефинализированными вариантами. При Regenerate AI Coach тренировочный state сбрасывается (новые keyMoments = новые позиции для тренировки).
+
+### replayPositions useMemo в ReviewPage
+FEN для тренировочных карточек вычисляется в ReviewPage через `useMemo([match.sanMoves])` — та же логика, что в ReplayBoard. Дублирование оправдано: ReviewPage не должна зависеть от внутреннего состояния ReplayBoard, а передача ref/callback наружу усложнила бы компонент. Оба `useMemo` вычисляются один раз при монтировании.
+
+### Реиспользование /api/coach/move для Training
+Training "Ask AI about my answer" вызывает существующий `/api/coach/move` с `question = userAnswer`. FEN берётся из `replayPositions[moment.ply]`. Новый endpoint не создавался — тип запроса/ответа совпадает с Ask AI about this move.
+
+### Full UX redesign отложен
+Coach Timeline и Training карточки намеренно не являются финальным дизайном. Используются существующие токены (`arena-*`) и базовая структура. Полный redesign review-страницы — отдельный этап после завершения функционального блока и QA-прохода.

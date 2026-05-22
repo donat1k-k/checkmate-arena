@@ -1,6 +1,25 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DemoCoachReview } from "@/lib/demo/coach";
 
+export type AiKeyMomentType =
+  | "good"
+  | "inaccuracy"
+  | "mistake"
+  | "critical"
+  | "turning_point";
+
+export type AiKeyMoment = {
+  ply: number;
+  san?: string;
+  type: AiKeyMomentType;
+  title: string;
+  comment: string;
+  betterPlan?: string;
+  trainingTip?: string;
+  practiceQuestion?: string;
+  expectedAnswer?: string;
+};
+
 export type AiAnalysis = {
   mainMistake: string;
   bestAlternative: string;
@@ -9,6 +28,7 @@ export type AiAnalysis = {
   keyMovePly?: number;
   keyMoveSan?: string;
   keyMoveComment?: string;
+  keyMoments?: AiKeyMoment[];
 };
 
 export type AccountReview = {
@@ -53,6 +73,39 @@ function toAccountReview(review: ReviewRow): AccountReview {
   };
 }
 
+const VALID_KEY_MOMENT_TYPES = new Set<string>([
+  "good",
+  "inaccuracy",
+  "mistake",
+  "critical",
+  "turning_point",
+]);
+
+function toKeyMoment(value: unknown): AiKeyMoment | null {
+  if (!value || typeof value !== "object") return null;
+  const m = value as Record<string, unknown>;
+  if (
+    typeof m.ply !== "number" ||
+    typeof m.type !== "string" ||
+    !VALID_KEY_MOMENT_TYPES.has(m.type) ||
+    typeof m.title !== "string" ||
+    typeof m.comment !== "string"
+  ) {
+    return null;
+  }
+  return {
+    ply: m.ply,
+    type: m.type as AiKeyMomentType,
+    title: m.title,
+    comment: m.comment,
+    san: typeof m.san === "string" ? m.san : undefined,
+    betterPlan: typeof m.betterPlan === "string" ? m.betterPlan : undefined,
+    trainingTip: typeof m.trainingTip === "string" ? m.trainingTip : undefined,
+    practiceQuestion: typeof m.practiceQuestion === "string" ? m.practiceQuestion : undefined,
+    expectedAnswer: typeof m.expectedAnswer === "string" ? m.expectedAnswer : undefined,
+  };
+}
+
 function toAiAnalysis(value: unknown): AiAnalysis | null {
   if (!value || typeof value !== "object") return null;
   const a = value as Record<string, unknown>;
@@ -64,6 +117,13 @@ function toAiAnalysis(value: unknown): AiAnalysis | null {
   ) {
     return null;
   }
+
+  let keyMoments: AiKeyMoment[] | undefined;
+  if (Array.isArray(a.keyMoments)) {
+    const parsed = a.keyMoments.map(toKeyMoment).filter((m): m is AiKeyMoment => m !== null);
+    if (parsed.length > 0) keyMoments = parsed;
+  }
+
   return {
     mainMistake: a.mainMistake,
     bestAlternative: a.bestAlternative,
@@ -72,6 +132,7 @@ function toAiAnalysis(value: unknown): AiAnalysis | null {
     keyMovePly: typeof a.keyMovePly === "number" ? a.keyMovePly : undefined,
     keyMoveSan: typeof a.keyMoveSan === "string" ? a.keyMoveSan : undefined,
     keyMoveComment: typeof a.keyMoveComment === "string" ? a.keyMoveComment : undefined,
+    keyMoments,
   };
 }
 

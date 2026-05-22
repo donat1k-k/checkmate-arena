@@ -20,6 +20,8 @@ type ReplayBoardProps = {
   keyMoveSan?: string;
   keyMoveComment?: string;
   onPlyChange?: (ply: number, san: string | null, fen: string) => void;
+  jumpToPly?: number;
+  onJumpApplied?: () => void;
 };
 
 export default function ReplayBoard({
@@ -29,6 +31,8 @@ export default function ReplayBoard({
   keyMoveSan,
   keyMoveComment,
   onPlyChange,
+  jumpToPly,
+  onJumpApplied,
 }: ReplayBoardProps) {
   const { t } = usePreferences();
   const tr = t.review.replay;
@@ -55,6 +59,13 @@ export default function ReplayBoard({
     const fen = positions[currentPly] ?? positions[positions.length - 1] ?? "";
     onPlyChange(currentPly, san, fen);
   }, [currentPly, onPlyChange, sanMoves, positions]);
+
+  useEffect(() => {
+    if (jumpToPly === undefined) return;
+    const clamped = Math.max(0, Math.min(positions.length - 1, jumpToPly));
+    setCurrentPly(clamped);
+    onJumpApplied?.();
+  }, [jumpToPly, onJumpApplied, positions.length]);
 
   const total = positions.length - 1;
   const atStart = currentPly === 0;
