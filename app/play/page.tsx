@@ -54,14 +54,14 @@ function resultText(status: GameStatus, t: AppTranslations): string {
 }
 
 const SELECT_STYLE: React.CSSProperties = {
-  backgroundColor: "rgba(59, 130, 246, 0.45)",
+  backgroundColor: "rgba(245, 158, 11, 0.45)",
 };
 const CHECK_STYLE: React.CSSProperties = {
   backgroundColor: "rgba(248, 81, 73, 0.55)",
 };
 const TARGET_STYLE: React.CSSProperties = {
   background:
-    "radial-gradient(circle, rgba(59,130,246,0.55) 22%, transparent 24%)",
+    "radial-gradient(circle, rgba(245,158,11,0.55) 22%, transparent 24%)",
 };
 
 export default function PlayPage() {
@@ -343,7 +343,7 @@ export default function PlayPage() {
   if (profileError) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
-        <p className="text-sm font-medium text-arena-gold">{t.auth.account}</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.auth.account}</p>
         <h1 className="mt-1 text-2xl font-bold">{t.play.accountErrorTitle}</h1>
         <p className="mt-2 max-w-xl text-sm text-arena-muted">
           {t.play.accountErrorBody}
@@ -360,109 +360,107 @@ export default function PlayPage() {
 
   if (!profile) {
     return (
-      <div className="grid gap-5 py-4 lg:grid-cols-[1fr_420px] lg:items-center">
-        <section>
-          <p className="text-sm font-medium text-arena-gold">{t.play.entryEyebrow}</p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight">
-            {t.play.entryTitle}
-          </h1>
-          <p className="mt-3 max-w-xl text-sm text-arena-muted">
-            {t.play.entryBody}
-          </p>
-          <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-xs text-arena-muted">{t.play.startRating}</p>
-              <p className="mt-1 text-2xl font-semibold">1000</p>
+      <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-arena-border bg-arena-panel text-2xl text-arena-blue">♟</div>
+            <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.play.entryEyebrow}</p>
+            <h1 className="mt-2 text-2xl font-bold">{t.play.entryTitle}</h1>
+            <p className="mt-2 text-sm text-arena-muted">{t.play.entryBody}</p>
+          </div>
+
+          <div className="panel">
+            <div className="panel-hd">
+              <span className="panel-ttl">{t.play.guestProfile}</span>
             </div>
-            <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-xs text-arena-muted">{t.play.opponent}</p>
-              <p className="mt-1 font-semibold">{t.match.opponent.localRival}</p>
-            </div>
-            <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-xs text-arena-muted">{t.play.review}</p>
-              <p className="mt-1 font-semibold">{t.play.afterFinish}</p>
+            <div className="p-4">
+              <form onSubmit={startGuestProfile} className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="text-xs font-medium text-arena-muted uppercase tracking-wide">{t.play.nickname}</span>
+                  <input
+                    value={nickname}
+                    onChange={(event) => setNickname(event.target.value)}
+                    maxLength={24}
+                    autoFocus
+                    className="rounded-md border border-arena-border bg-arena-elevated px-3 py-2.5 text-sm outline-none focus:border-arena-blue"
+                    placeholder="ArenaGuest"
+                  />
+                </label>
+                {nicknameError && <p className="text-xs text-arena-loss">{nicknameError}</p>}
+                <button className="w-full rounded-md bg-arena-blue py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                  {t.play.enterArena}
+                </button>
+              </form>
+              <div className="mt-3 grid grid-cols-3 gap-2 pt-3 border-t border-arena-border">
+                <div className="text-center">
+                  <div className="font-mono text-base font-bold">1000</div>
+                  <div className="text-[10px] text-arena-muted">{t.play.startRating}</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-sm">{t.match.opponent.localRival}</div>
+                  <div className="text-[10px] text-arena-muted">{t.play.opponent}</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-sm">AI</div>
+                  <div className="text-[10px] text-arena-muted">{t.play.review}</div>
+                </div>
+              </div>
             </div>
           </div>
-        </section>
-        <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">{t.play.guestProfile}</p>
-          <h2 className="mt-2 text-2xl font-bold">{t.play.chooseNickname}</h2>
-          <p className="mt-2 text-sm text-arena-muted">
-            {t.play.localProgress}
-          </p>
-          <form onSubmit={startGuestProfile} className="mt-5 flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-arena-muted">{t.play.nickname}</span>
-              <input
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                maxLength={24}
-                autoFocus
-                className="rounded-md border border-arena-border bg-arena-elevated px-3 py-2 outline-none focus:border-arena-blue"
-                placeholder="ArenaGuest"
-              />
-            </label>
-            {nicknameError && <p className="text-sm text-arena-loss">{nicknameError}</p>}
-            <button className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90">
-              {t.play.enterArena}
-            </button>
-          </form>
-        </section>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="flex flex-col justify-between gap-4 border-b border-arena-border pb-5 md:flex-row md:items-end">
-        <div>
-          <div className="flex flex-wrap gap-2 text-sm">
-            <span className="rounded-full border border-arena-border bg-arena-panel px-3 py-1 text-arena-gold">
+    <div className="-mx-4 -mt-5 sm:-mt-6 flex flex-col">
+      {/* Play layout: mobile stack, desktop workspace */}
+      <div
+        className="grid flex-1 grid-cols-1 border-t border-arena-border md:min-h-[calc(100vh-52px)] md:grid-cols-[260px_minmax(0,1fr)_280px]"
+      >
+        {/* ── LEFT SIDEBAR: setup info ── */}
+        <div className="order-3 flex min-w-0 flex-col border-t border-arena-border md:order-none md:border-r md:border-t-0">
+          <div className="sidebar-sec">
+            <div className="sidebar-sec-title">{t.play.yourRating}</div>
+            <div className="font-mono text-2xl font-bold text-arena-text">{profile.rating}</div>
+            <div className="text-xs text-arena-muted mt-1">{getRatingLevel(profile.rating)}</div>
+          </div>
+          <div className="sidebar-sec">
+            <div className="sidebar-sec-title">{t.play.opponent}</div>
+            <div className="font-semibold text-sm">{t.match.opponent.localRival}</div>
+            <div className="font-mono text-xs text-arena-muted mt-0.5">{RIVAL_RATING}</div>
+          </div>
+          <div className="sidebar-sec flex-1">
+            <div className="sidebar-sec-title">
               {profileKind === "account" ? t.play.accountRanked : t.play.localRanked}
-            </span>
-            <span className="rounded-full border border-arena-border bg-arena-panel px-3 py-1 text-arena-muted">
-              {t.play.hotSeat}
-            </span>
-          </div>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight">
-            {profile.nickname} {t.common.vs} {t.match.opponent.localRival}
-          </h1>
-          <p className="mt-2 text-sm text-arena-muted">
-            {profileKind === "account"
-              ? t.play.accountProgressAsWhite
-              : t.play.progressAsWhite}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:min-w-72">
-          <div className="rounded-lg border border-arena-border bg-arena-panel px-4 py-3">
-            <p className="text-xs text-arena-muted">{t.play.yourRating}</p>
-            <p className="mt-1 text-2xl font-semibold">{profile.rating}</p>
-          </div>
-          <div className="rounded-lg border border-arena-border bg-arena-panel px-4 py-3">
-            <p className="text-xs text-arena-muted">{t.play.level}</p>
-            <p className="mt-1 text-2xl font-semibold">
-              {getRatingLevel(profile.rating)}
+            </div>
+            <p className="text-xs text-arena-muted leading-relaxed">
+              {profileKind === "account" ? t.play.accountProgressAsWhite : t.play.progressAsWhite}
             </p>
           </div>
-        </div>
-      </section>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-arena-border bg-arena-panel px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-md bg-arena-elevated font-semibold text-arena-gold">
-                LR
-              </span>
-              <div>
-                <p className="font-semibold">{t.match.opponent.localRival}</p>
-                <p className="text-sm text-arena-muted">{t.play.blackPieces}</p>
-              </div>
+          {gameRestored && (
+            <div className="sidebar-sec bg-arena-amber-bg border-t border-arena-amber-border">
+              <p className="text-xs font-medium text-arena-blue">{t.play.gameRestored}</p>
+              <p className="text-[10px] text-arena-muted mt-0.5">{t.play.gameRestoredHint}</p>
             </div>
-            <p className="text-sm text-arena-muted">{RIVAL_RATING}</p>
+          )}
+        </div>
+
+        {/* ── CENTER: board area ── */}
+        <div className="order-1 flex min-w-0 flex-col items-center justify-start gap-2 bg-arena-elevated p-3 md:order-none md:justify-center md:p-5">
+          {/* Opponent bar */}
+          <div className="w-full max-w-[480px] flex items-center gap-3 px-3.5 py-2.5 bg-arena-panel border border-arena-border rounded-lg">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center bg-arena-text text-arena-bg text-sm font-bold shrink-0">
+              LR
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">{t.match.opponent.localRival}</div>
+              <div className="font-mono text-xs text-arena-muted">{RIVAL_RATING}</div>
+            </div>
           </div>
 
-          <div className="flex justify-center rounded-lg border border-arena-border bg-arena-panel/75 p-3 sm:p-4">
+          {/* Board */}
+          <div className="w-full max-w-[480px]">
             <Board
               fen={game.fen}
               orientation="w"
@@ -473,21 +471,23 @@ export default function PlayPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-arena-border bg-arena-panel px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-md bg-arena-blue font-semibold text-white">
-                {profile.nickname.slice(0, 2).toUpperCase()}
-              </span>
-              <div>
-                <p className="font-semibold">{profile.nickname}</p>
-                <p className="text-sm text-arena-muted">{t.play.whitePieces}</p>
-              </div>
+          {/* Player bar */}
+          <div className="w-full max-w-[480px] flex items-center gap-3 px-3.5 py-2.5 bg-arena-panel border border-arena-border rounded-lg">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center bg-arena-blue text-white text-sm font-bold shrink-0">
+              {profile.nickname.slice(0, 2).toUpperCase()}
             </div>
-            <p className="text-sm text-arena-muted">{profile.rating}</p>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">
+                {profile.nickname}
+                <span className="ml-1.5 text-[10px] text-arena-muted font-normal">(you)</span>
+              </div>
+              <div className="font-mono text-xs text-arena-muted">{profile.rating}</div>
+            </div>
           </div>
 
+          {/* Promotion dialog */}
           {promotion && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-arena-border bg-arena-panel px-3 py-2">
+            <div className="w-full max-w-[480px] flex flex-wrap items-center gap-2 rounded-lg border border-arena-border bg-arena-panel px-3 py-2">
               <span className="text-sm text-arena-muted">{t.chess.promoteTo}</span>
               {(["q", "r", "b", "n"] as PromotionPiece[]).map((piece) => (
                 <button
@@ -500,132 +500,100 @@ export default function PlayPage() {
               ))}
             </div>
           )}
-        </section>
+        </div>
 
-        <aside className="flex w-full flex-col gap-4">
-          <section className="rounded-lg border border-arena-border bg-arena-panel p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm text-arena-muted">{t.play.matchStatus}</p>
-                <p
-                  className={
-                    status.state === "playing"
-                      ? "mt-1 text-xl font-semibold"
-                      : "mt-1 text-xl font-semibold text-arena-gold"
-                  }
-                >
-                  {matchStatus}
-                </p>
-              </div>
-              <span
-                className={
-                  status.state === "playing"
-                    ? "rounded-full bg-arena-blue px-2.5 py-1 text-xs font-medium text-white"
-                    : "rounded-full bg-arena-gold px-2.5 py-1 text-xs font-medium text-arena-bg"
-                }
-              >
+        {/* ── RIGHT SIDEBAR: status + notation ── */}
+        <div className="order-2 flex min-w-0 flex-col border-t border-arena-border md:order-none md:border-l md:border-t-0">
+          {/* Status */}
+          <div className="sidebar-sec">
+            <div className="flex items-center gap-2 mb-2">
+              {status.state === "playing" ? (
+                <span className="status-dot" />
+              ) : null}
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-arena-muted">
                 {status.state === "playing" ? t.match.live : t.match.final}
               </span>
             </div>
-            <p className="mt-3 text-sm text-arena-muted">
-              {status.state === "playing"
-                ? t.play.playingHint
-                : t.play.finishedHint}
+            <p className={`text-sm font-semibold ${status.state !== "playing" ? "text-arena-gold" : ""}`}>
+              {matchStatus}
             </p>
-          </section>
+            <p className="text-xs text-arena-muted mt-1">
+              {status.state === "playing" ? t.play.playingHint : t.play.finishedHint}
+            </p>
+          </div>
 
+          {/* Result card */}
           {completedMatch && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-4">
-              <p className="text-sm font-medium text-arena-gold">
-                {profileKind === "account"
-                  ? t.play.savedAccountResult
-                  : t.play.savedResult}
-              </p>
-              <div className="mt-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-                <div>
-                  <p className="text-2xl font-semibold">
-                    {t.match.result[completedMatch.result]}{" "}
-                    <span
-                      className={
-                        completedMatch.ratingDelta >= 0
-                          ? "text-arena-win"
-                          : "text-arena-loss"
-                      }
-                    >
-                      {completedMatch.ratingDelta > 0 ? "+" : ""}
-                      {completedMatch.ratingDelta}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-sm text-arena-muted">
-                    {completedMatch.ratingBefore} {t.common.to} {completedMatch.ratingAfter}
-                  </p>
-                </div>
-                <Link
-                  href={`/review/${completedMatch.id}`}
-                  className="rounded-md bg-arena-gold px-4 py-2 text-center font-medium text-arena-bg hover:opacity-90"
-                >
-                  {t.common.openReview}
-                </Link>
+            <div className={`sidebar-sec ${
+              completedMatch.result === "win"
+                ? "bg-arena-win/5 border-b border-arena-win/20"
+                : completedMatch.result === "loss"
+                ? "bg-arena-loss/5 border-b border-arena-loss/20"
+                : "border-b border-arena-border"
+            }`}>
+              <div className="sidebar-sec-title">
+                {profileKind === "account" ? t.play.savedAccountResult : t.play.savedResult}
               </div>
-            </section>
+              <div className="text-xl font-bold">
+                {t.match.result[completedMatch.result]}{" "}
+                <span className={completedMatch.ratingDelta >= 0 ? "text-arena-win" : "text-arena-loss"}>
+                  {completedMatch.ratingDelta > 0 ? "+" : ""}{completedMatch.ratingDelta}
+                </span>
+              </div>
+              <div className="font-mono text-xs text-arena-muted mt-0.5">
+                {completedMatch.ratingBefore} → {completedMatch.ratingAfter}
+              </div>
+              <Link
+                href={`/review/${completedMatch.id}`}
+                className="mt-2.5 block w-full rounded bg-arena-blue px-3 py-2 text-center text-xs font-semibold text-white hover:opacity-90"
+              >
+                {t.common.openReview}
+              </Link>
+            </div>
           )}
 
           {savePending && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-muted">
-              {t.play.savingAccountResult}
-            </section>
+            <div className="sidebar-sec text-xs text-arena-muted">{t.play.savingAccountResult}</div>
           )}
-
           {saveError && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-4 text-sm text-arena-loss">
-              {t.errors.saveFailed}
-            </section>
+            <div className="sidebar-sec text-xs text-arena-loss">{t.errors.saveFailed}</div>
           )}
 
-          {gameRestored && (
-            <section className="rounded-lg border border-arena-blue bg-arena-panel p-3">
-              <p className="text-sm font-medium text-arena-blue">{t.play.gameRestored}</p>
-              <p className="text-xs text-arena-muted">{t.play.gameRestoredHint}</p>
-            </section>
-          )}
+          {/* Move list */}
+          <div className="flex flex-1 flex-col md:overflow-hidden">
+            <MoveList moves={game.history()} />
+          </div>
 
-          <MoveList moves={game.history()} />
-
-          <section className="rounded-lg border border-arena-border bg-arena-panel p-3">
+          {/* Game controls */}
+          <div className="sidebar-sec">
             <div className="flex gap-2">
               <button
                 onClick={resign}
                 disabled={gameOver}
-                className="flex-1 rounded-md border border-arena-border bg-arena-elevated px-3 py-2 text-sm font-medium hover:border-arena-loss hover:text-arena-loss disabled:opacity-40"
+                className="flex-1 rounded border border-arena-border bg-arena-elevated px-3 py-2 text-xs font-medium hover:border-arena-loss hover:text-arena-loss disabled:opacity-40"
               >
                 {t.play.resign}
               </button>
               <button
                 onClick={reset}
                 disabled={gameOver && !completedMatch && !saveError}
-                className="flex-1 rounded-md bg-arena-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
+                className="flex-1 rounded bg-arena-blue px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
                 {t.play.newGame}
               </button>
             </div>
             {completedMatch && (
-              <div className="mt-3 flex flex-wrap gap-2 border-t border-arena-border pt-3 text-sm">
-                <Link
-                  href="/profile"
-                  className="rounded-md border border-arena-border px-3 py-1.5 font-medium hover:border-arena-gold"
-                >
+              <div className="mt-2 flex gap-2">
+                <Link href="/profile" className="flex-1 rounded border border-arena-border px-2 py-1.5 text-center text-xs font-medium hover:border-arena-gold">
                   {t.common.profile}
                 </Link>
-                <Link
-                  href="/leaderboard"
-                  className="rounded-md border border-arena-border px-3 py-1.5 font-medium hover:border-arena-gold"
-                >
+                <Link href="/leaderboard" className="flex-1 rounded border border-arena-border px-2 py-1.5 text-center text-xs font-medium hover:border-arena-gold">
                   {t.common.leaderboard}
                 </Link>
               </div>
             )}
-          </section>
-        </aside>
+          </div>
+        </div>
       </div>
     </div>
   );

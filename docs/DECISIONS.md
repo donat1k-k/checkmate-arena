@@ -317,3 +317,29 @@ Review-страница реструктурирована из плоского
 
 ### Полный visual redesign — следующий отдельный этап
 Stage 5.3 — структурная перестановка без изменения цветов, типографики, токенов и brand. Полный redesign (включая новые ui patterns, анимации, улучшенные карточки) выделен в отдельный будущий этап.
+
+## 2026-05-22 — Этап 7.0B: Visual System Migration
+
+### Amber-система вместо blue+gold дуальности
+Все `--color-arena-*` переменные сохранили имена — изменились только значения. Это ключевое решение: существующий React-код не требовал правок, изменение CSS-переменных автоматически перекрасило все страницы.
+
+`arena-blue` в dark-теме стал `#F59E0B` (amber-400) — достаточно светлый для текста на тёмном фоне. В light-теме `arena-blue = #B45309` (amber-700/cognac) — достаточно тёмный для контраста на кремовом фоне. Один токен, два значения через `[data-theme="light"]` override.
+
+### Новые токены arena-amber-bg и arena-amber-border
+Добавлены два новых токена для subtle amber-glow поверхностей (active nav, selected badge, restored-game banner, active option):
+- `arena-amber-bg` — amber-50 в light (`#FFFBEB`), `rgba(245,158,11,0.12)` в dark.
+- `arena-amber-border` — amber-200 в light (`#FDE68A`), `rgba(245,158,11,0.30)` в dark.
+
+Расширение набора токенов вместо инлайн-значений — чтобы both themes работали автоматически.
+
+### Font-variables в @theme
+`--font-sans` и `--font-mono` добавлены в `@theme` директиву Tailwind v4. Это связывает CSS-переменные с утилитами `font-sans` / `font-mono`. Google Fonts загружаются через `<link>` в `<head>` layout.tsx — стандартный path без next/font (next/font с внешними Google Fonts требует дополнительной настройки под App Router + SSR, `<link>` проще и достаточно для MVP).
+
+### Active nav link via usePathname
+SiteShell теперь использует `usePathname()` и передаёт его в `navLinkClass()`. Проверка `pathname === href || pathname.startsWith(href + "/")` (а не `.startsWith(href)`) критична: `/profile`.startsWith(`/pro`) = true — баг, который был бы незаметен без просмотра в браузере.
+
+### momentBorderClass — цветовое кодирование левой границы
+Типы AI-моментов визуализируются через `border-l-2` левую границу вместо цветных бейджей — меньше шума, легко читается в плотном workspace. Функция `momentBorderClass(type)` — чистый маппинг, не влияет на данные.
+
+### border-l-arena-* через Tailwind purge
+В Tailwind v4 arbitrary values в JIT работают без safelist, но именованные классы типа `border-l-arena-win` требуют, чтобы строка целиком присутствовала в исходниках. `momentBorderClass()` возвращает полные строки (`"border-l-arena-win"`, `"border-l-yellow-400"` и т.д.) — не конкатенирует их из частей. Это важно для корректной работы Tailwind purge.

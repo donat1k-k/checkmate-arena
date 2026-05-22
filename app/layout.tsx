@@ -23,8 +23,14 @@ export default function RootLayout({
             __html: `(function(){try{var p=JSON.parse(localStorage.getItem('checkmate-arena.preferences.v1')||'{}');var e=document.documentElement;if(p.theme==='light')e.dataset.theme='light';if(p.locale==='ru')e.lang='ru';e.classList.add('prefs-loading');}catch(_){}})();`,
           }}
         />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Lora:ital,wght@1,600&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body className="min-h-dvh">
+      <body className="min-h-dvh font-sans">
         <PreferencesProvider>
           <SiteShell>{children}</SiteShell>
         </PreferencesProvider>

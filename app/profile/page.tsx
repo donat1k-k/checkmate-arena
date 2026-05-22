@@ -180,7 +180,7 @@ export default function ProfilePage() {
   if (accountError) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
-        <p className="text-sm font-medium text-arena-gold">{t.profile.accountEyebrow}</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.accountEyebrow}</p>
         <h1 className="mt-1 text-2xl font-bold">{t.profile.accountErrorTitle}</h1>
         <p className="mt-2 max-w-xl text-sm text-arena-muted">
           {t.profile.accountErrorBody}
@@ -198,7 +198,7 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-6">
-        <p className="text-sm font-medium text-arena-gold">{t.profile.eyebrow}</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.eyebrow}</p>
         <h1 className="mt-1 text-2xl font-bold">{t.profile.emptyTitle}</h1>
         <p className="mt-2 max-w-xl text-sm text-arena-muted">
           {t.profile.emptyBody}
@@ -254,68 +254,81 @@ export default function ProfilePage() {
     : null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="grid gap-5 rounded-lg border border-arena-border bg-arena-panel p-5 lg:grid-cols-[1fr_280px]">
-        <div>
-          <p className="text-sm font-medium text-arena-gold">
-            {isAccount ? t.profile.accountEyebrow : t.profile.eyebrow}
-          </p>
-          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <span className="grid h-20 w-20 shrink-0 place-items-center rounded-lg border border-arena-border bg-arena-elevated text-2xl font-semibold text-arena-gold">
-              {profile.nickname.slice(0, 2).toUpperCase()}
-            </span>
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight">
-                {profile.nickname}
-              </h1>
-              <p className="mt-2 text-sm text-arena-muted">
-                {isAccount
-                  ? t.profile.accountLevelSummary(
-                      getRatingLevel(profile.rating),
-                      profile.gamesPlayed,
-                    )
-                  : t.profile.levelSummary(
-                      getRatingLevel(profile.rating),
-                      profile.gamesPlayed,
-                    )}
-              </p>
-              <p className="mt-1 text-xs text-arena-muted">
-                {t.profile.joined} {formatDate(profile.createdAt, locale)}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col justify-between rounded-lg border border-arena-border bg-arena-elevated p-4">
-          <div>
-            <p className="text-xs text-arena-muted">{t.profile.peakRating}</p>
-            <p className="mt-1 text-4xl font-semibold">{profile.peakRating}</p>
-            <p className="mt-2 text-sm text-arena-muted">
-              {t.profile.currentRating}: {profile.rating}
-            </p>
-          </div>
-          <Link
-            href="/play"
-            className="mt-5 rounded-md bg-arena-blue px-4 py-2 text-center font-medium text-white hover:opacity-90"
-          >
-            {t.profile.playAgain}
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:col-span-2 xl:grid-cols-5">
-          {statItems.map((item) => (
+    <div className="flex flex-col gap-0 -mx-4 -mt-5 sm:-mt-6">
+      {/* ── Profile header ── */}
+      <div className="border-b border-arena-border bg-arena-panel px-4 py-5">
+        <div className="mx-auto max-w-[1280px]">
+          {/* Avatar + name row */}
+          <div className="flex flex-wrap items-center gap-4 mb-5">
             <div
-              key={item.label}
-              className="rounded-md border border-arena-border bg-arena-elevated p-3"
+              className="h-[72px] w-[72px] shrink-0 rounded-full flex items-center justify-center text-2xl font-extrabold text-arena-blue"
+              style={{ background: "var(--color-arena-amber-bg)", border: "2px solid var(--color-arena-blue)" }}
             >
-              <p className="text-xs text-arena-muted">{item.label}</p>
-              <p className="mt-1 text-xl font-semibold">{item.value}</p>
+              {profile.nickname.slice(0, 2).toUpperCase()}
             </div>
-          ))}
-        </div>
-      </section>
+            <div>
+              <h1 className="text-2xl font-extrabold">{profile.nickname}</h1>
+              <div className="font-mono text-xs text-arena-muted mt-0.5">
+                @{profile.nickname.toLowerCase().replace(/\s/g, "_")}
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span
+                  className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={{ background: "var(--color-arena-amber-bg)", border: "1px solid var(--color-arena-amber-border)", color: "var(--color-arena-blue)" }}
+                >
+                  {isAccount ? t.profile.badges.account : t.profile.badges.founding}
+                </span>
+                {profile.wins > 0 && (
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-arena-win/10 border border-arena-win/30 text-arena-win">
+                    {t.profile.badges.firstWin}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="ml-auto flex gap-2">
+              <Link
+                href="/play"
+                className="rounded-md bg-arena-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                {t.profile.playAgain}
+              </Link>
+            </div>
+          </div>
 
-      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          {/* Horizontal stat row */}
+          <div
+            className="grid grid-cols-2 overflow-hidden rounded-lg border border-arena-border sm:flex"
+            style={{ background: "var(--color-arena-border)", gap: "1px" }}
+          >
+            {[
+              { label: t.profile.stats.rating, value: profile.rating, mono: true, accent: true },
+              { label: t.profile.stats.peak, value: profile.peakRating, mono: true },
+              { label: t.profile.stats.games, value: profile.gamesPlayed, mono: true },
+              { label: t.profile.stats.winrate, value: `${profile.winRate}%`, mono: true },
+              { label: t.profile.stats.wins, value: profile.wins, mono: true },
+              { label: t.profile.stats.losses, value: profile.losses, mono: true },
+              { label: t.profile.stats.streak, value: profile.streak, mono: true },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="min-w-0 bg-arena-panel px-3 py-3 sm:min-w-[80px] sm:flex-1"
+              >
+                <div className={`font-mono text-lg font-bold ${stat.accent ? "text-arena-blue" : ""}`}>
+                  {stat.value}
+                </div>
+                <div className="text-[10px] text-arena-muted mt-0.5 uppercase tracking-wide">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-6">
+        <div className="mx-auto max-w-[1280px] flex flex-col gap-5">
+
+      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" style={{ contain: "none" }}>
         <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">{t.profile.badgesEyebrow}</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.badgesEyebrow}</p>
           <h2 className="mt-2 text-2xl font-semibold">{t.profile.statusTitle}</h2>
           <div className="mt-4 grid gap-2">
             {badgeItems.map((badge) => (
@@ -323,7 +336,7 @@ export default function ProfilePage() {
                 key={badge.label}
                 className={
                   badge.active
-                    ? "rounded-md border border-arena-gold/40 bg-arena-elevated px-4 py-3"
+                    ? "rounded-md border border-arena-blue/30 bg-arena-amber-bg px-4 py-3"
                     : "rounded-md border border-arena-border bg-arena-elevated/60 px-4 py-3 text-arena-muted"
                 }
               >
@@ -335,7 +348,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">{t.profile.latestSignal}</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.latestSignal}</p>
           {recentMatch ? (
             <>
               <h2 className="mt-2 text-2xl font-semibold">
@@ -457,6 +470,8 @@ export default function ProfilePage() {
           </div>
         )}
       </section>
+        </div>
+      </div>
     </div>
   );
 }

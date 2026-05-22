@@ -37,9 +37,6 @@ function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-// Schema has no finish_reason column yet — draws are stored as "draw" status
-// without distinguishing stalemate/insufficient/threefold/fifty-move.
-// Using "stalemate" as a placeholder for all draws until Schema V2 migration.
 function accountCoachFinish(match: AccountMatch): MatchFinish {
   if (match.status === "resigned") return "resignation";
   if (match.result === "draw") return "stalemate";
@@ -72,7 +69,6 @@ function accountReviewView(
   locale: Locale,
 ): DemoCoachReview {
   const fallback = buildDemoCoachReview(accountCoachSource(match), locale);
-
   return {
     ...fallback,
     headline: review?.headline ?? fallback.headline,
@@ -104,13 +100,23 @@ type TrainingMomentState = {
   aiError: string | null;
 };
 
-function momentTypeBadgeClass(type: AiKeyMoment["type"]): string {
+function momentQBadgeClass(type: AiKeyMoment["type"]): string {
   switch (type) {
-    case "good": return "border-arena-win/50 bg-arena-win/10 text-arena-win";
-    case "inaccuracy": return "border-yellow-500/50 bg-yellow-500/10 text-yellow-400";
-    case "mistake": return "border-arena-loss/50 bg-arena-loss/10 text-arena-loss";
-    case "critical": return "border-red-500/60 bg-red-500/15 text-red-400";
-    case "turning_point": return "border-arena-blue/50 bg-arena-blue/10 text-arena-blue";
+    case "good": return "good";
+    case "inaccuracy": return "inaccuracy";
+    case "mistake": return "mistake";
+    case "critical": return "blunder";
+    case "turning_point": return "strong";
+  }
+}
+
+function momentBorderColor(type: AiKeyMoment["type"]): string {
+  switch (type) {
+    case "good": return "var(--color-arena-win)";
+    case "inaccuracy": return "#d97706";
+    case "mistake": return "#ea580c";
+    case "critical": return "var(--color-arena-loss)";
+    case "turning_point": return "var(--color-arena-blue)";
   }
 }
 
@@ -123,43 +129,73 @@ function KeyMomentCard({
   tl: TimelineStrings;
   onGoToMove: () => void;
 }) {
-  const badgeClass = momentTypeBadgeClass(moment.type);
   const typeLabel = tl.types[moment.type] ?? moment.type;
-
   return (
-    <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
+    <div
+      className="min-w-0 rounded border border-arena-border bg-arena-elevated p-3 break-words"
+      style={{ borderLeftWidth: 2, borderLeftColor: momentBorderColor(moment.type) }}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-            {typeLabel}
-          </span>
+          <span className={`qbadge ${momentQBadgeClass(moment.type)}`}>{typeLabel}</span>
           {moment.san && (
-            <span className="font-mono text-sm font-medium">
-              {moment.ply}. {moment.san}
-            </span>
+            <span className="font-mono text-xs font-semibold">{moment.ply}. {moment.san}</span>
           )}
-          <span className="font-medium">{moment.title}</span>
+          <span className="text-xs font-medium text-arena-text">{moment.title}</span>
         </div>
         <button
           onClick={onGoToMove}
-          className="shrink-0 rounded-md border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
+          className="shrink-0 rounded border border-arena-border px-2 py-0.5 text-xs text-arena-muted hover:border-arena-blue hover:text-arena-blue"
         >
           {tl.goToMove}
         </button>
       </div>
-      <p className="mt-2 text-sm text-arena-muted">{moment.comment}</p>
+      <p className="mt-1.5 text-xs text-arena-muted leading-relaxed">{moment.comment}</p>
       {moment.betterPlan && (
         <p className="mt-1 text-xs text-arena-muted">
-          <span className="font-medium text-foreground">{tl.betterPlan}:</span>{" "}
+          <span className="font-medium text-arena-text">{tl.betterPlan}:</span>{" "}
           <span className="font-mono">{moment.betterPlan}</span>
         </p>
       )}
-      {moment.trainingTip && (
-        <p className="mt-1 text-xs text-arena-muted">
-          <span className="font-medium text-foreground">{tl.trainingTip}:</span>{" "}
-          {moment.trainingTip}
-        </p>
-      )}
+    </div>
+  );
+}
+
+function KeyMomentsPanel({
+  className = "",
+  keyMoments,
+  moveMeta,
+  tl,
+  onGoToMove,
+}: {
+  className?: string;
+  keyMoments: AiKeyMoment[] | undefined;
+  moveMeta: string;
+  tl: TimelineStrings;
+  onGoToMove: (ply: number) => void;
+}) {
+  return (
+    <div className={`panel min-w-0 ${className}`}>
+      <div className="panel-hd">
+        <span className="panel-ttl">{tl.eyebrow}</span>
+        <span className="font-mono text-[10px] text-arena-muted">{moveMeta}</span>
+      </div>
+      <div className="p-3">
+        {!keyMoments?.length ? (
+          <p className="py-1 text-xs text-arena-muted">{tl.noKeyMoments}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {keyMoments.map((moment, index) => (
+              <KeyMomentCard
+                key={index}
+                moment={moment}
+                tl={tl}
+                onGoToMove={() => onGoToMove(moment.ply)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -185,46 +221,44 @@ function TrainingMomentCard({
   onReveal: () => void;
   onAskAi: () => void;
 }) {
-  const badgeClass = momentTypeBadgeClass(moment.type);
   const typeLabel = tl.types[moment.type] ?? moment.type;
   const question = moment.practiceQuestion ?? tr.howToImprove;
 
   return (
-    <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-          {typeLabel}
-        </span>
+    <div
+      className="min-w-0 rounded border border-arena-border bg-arena-elevated p-3 break-words"
+      style={{ borderLeftWidth: 2, borderLeftColor: momentBorderColor(moment.type) }}
+    >
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <span className={`qbadge ${momentQBadgeClass(moment.type)}`}>{typeLabel}</span>
         {moment.san && (
-          <span className="font-mono text-sm font-medium">
-            {moment.ply}. {moment.san}
-          </span>
+          <span className="font-mono text-xs font-semibold">{moment.ply}. {moment.san}</span>
         )}
-        <span className="font-medium">{moment.title}</span>
+        <span className="text-xs font-medium text-arena-text">{moment.title}</span>
         <button
           onClick={onGoToMove}
-          className="ml-auto rounded-md border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
+          className="ml-auto rounded border border-arena-border px-2 py-0.5 text-xs text-arena-muted hover:border-arena-blue hover:text-arena-blue"
         >
           {tr.practiceThis}
         </button>
       </div>
 
-      <p className="mt-3 text-sm font-medium">{question}</p>
+      <p className="text-xs font-medium text-arena-text mb-2">{question}</p>
 
-      <div className="mt-2 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <textarea
           value={state.userAnswer}
           onChange={(e) => onAnswerChange(e.target.value.slice(0, 500))}
           placeholder={tr.placeholder}
           disabled={state.aiLoading}
           rows={2}
-          className="w-full resize-none rounded-md border border-arena-border bg-arena-panel px-3 py-2 text-sm placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full resize-none rounded border border-arena-border bg-arena-panel px-2.5 py-1.5 text-xs placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:opacity-50"
         />
         <div className="flex flex-wrap gap-2">
           {!state.revealed && (
             <button
               onClick={onReveal}
-              className="rounded-md border border-arena-border px-3 py-1.5 text-xs font-medium hover:border-arena-gold hover:text-arena-gold"
+              className="rounded border border-arena-border px-2.5 py-1 text-xs font-medium hover:border-arena-gold hover:text-arena-gold"
             >
               {tr.showCoachAnswer}
             </button>
@@ -232,7 +266,7 @@ function TrainingMomentCard({
           <button
             onClick={onAskAi}
             disabled={!state.userAnswer.trim() || state.aiLoading}
-            className="rounded-md bg-arena-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded bg-arena-blue px-2.5 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {state.aiLoading ? tr.checking : tr.askAiAnswer}
           </button>
@@ -240,21 +274,13 @@ function TrainingMomentCard({
       </div>
 
       {state.revealed && (
-        <div className="mt-3 rounded-md border border-arena-gold/30 bg-arena-gold/5 p-3">
-          <p className="text-xs font-medium text-arena-gold">{tr.coachAnswer}</p>
-          {moment.expectedAnswer && (
-            <p className="mt-1 text-sm">{moment.expectedAnswer}</p>
-          )}
+        <div className="mt-2 rounded border border-arena-gold/30 bg-arena-gold/5 p-2.5">
+          <p className="text-xs font-semibold text-arena-gold">{tr.coachAnswer}</p>
+          {moment.expectedAnswer && <p className="mt-1 text-xs">{moment.expectedAnswer}</p>}
           {moment.betterPlan && (
             <p className="mt-1 text-xs text-arena-muted">
-              <span className="font-medium text-foreground">{tl.betterPlan}:</span>{" "}
+              <span className="font-medium text-arena-text">{tl.betterPlan}:</span>{" "}
               <span className="font-mono">{moment.betterPlan}</span>
-            </p>
-          )}
-          {moment.trainingTip && (
-            <p className="mt-1 text-xs text-arena-muted">
-              <span className="font-medium text-foreground">{tl.trainingTip}:</span>{" "}
-              {moment.trainingTip}
             </p>
           )}
         </div>
@@ -262,26 +288,18 @@ function TrainingMomentCard({
 
       {state.aiError && (
         <p className="mt-2 text-xs text-arena-muted">
-          {state.aiError === "not_configured"
-            ? ta.notConfigured
-            : ta.error}
+          {state.aiError === "not_configured" ? ta.notConfigured : ta.error}
         </p>
       )}
 
       {state.aiResult && (
-        <div className="mt-3 rounded-md border border-arena-border bg-arena-panel p-3">
-          <p className="text-xs font-medium text-arena-gold">{tr.aiFeedback}</p>
-          <p className="mt-1 text-sm">{state.aiResult.answer}</p>
+        <div className="mt-2 rounded border border-arena-border bg-arena-panel p-2.5">
+          <p className="text-xs font-semibold text-arena-gold">{tr.aiFeedback}</p>
+          <p className="mt-1 text-xs">{state.aiResult.answer}</p>
           {state.aiResult.betterPlan && (
             <p className="mt-1 text-xs text-arena-muted">
-              <span className="font-medium text-foreground">{tl.betterPlan}:</span>{" "}
+              <span className="font-medium text-arena-text">{tl.betterPlan}:</span>{" "}
               <span className="font-mono">{state.aiResult.betterPlan}</span>
-            </p>
-          )}
-          {state.aiResult.trainingTip && (
-            <p className="mt-1 text-xs text-arena-muted">
-              <span className="font-medium text-foreground">{tl.trainingTip}:</span>{" "}
-              {state.aiResult.trainingTip}
             </p>
           )}
         </div>
@@ -313,66 +331,45 @@ export default function ReviewPage() {
   const [moveQLoading, setMoveQLoading] = useState(false);
   const [moveQError, setMoveQError] = useState<string | null>(null);
   const [moveQResult, setMoveQResult] = useState<{
-    answer: string;
-    betterPlan: string;
-    trainingTip: string;
+    answer: string; betterPlan: string; trainingTip: string;
   } | null>(null);
-  const [moveQHistory, setMoveQHistory] = useState<
-    Array<{
-      ply: number;
-      san: string | null;
-      question: string;
-      answer: string;
-      betterPlan: string;
-      trainingTip: string;
-    }>
-  >([]);
+  const [moveQHistory, setMoveQHistory] = useState<Array<{
+    ply: number; san: string | null; question: string;
+    answer: string; betterPlan: string; trainingTip: string;
+  }>>([]);
 
   const [trainingState, setTrainingState] = useState<Record<number, TrainingMomentState>>({});
 
   useEffect(() => {
     let active = true;
-
     async function loadReview() {
-      const savedLocalMatch =
-        loadMatches().find((savedMatch) => savedMatch.id === matchId) ?? null;
-
+      const savedLocalMatch = loadMatches().find((m) => m.id === matchId) ?? null;
       if (savedLocalMatch) {
         if (!active) return;
         setLocalMatch(savedLocalMatch);
         setLoaded(true);
         return;
       }
-
       const supabase = createClient();
       if (!supabase || !matchId) {
         if (!active) return;
         setLoaded(true);
         return;
       }
-
       const [savedMatch, savedReview, savedAi] = await Promise.all([
         loadAccountMatch(supabase, matchId),
         loadAccountReview(supabase, matchId),
         loadSavedAiAnalysis(supabase, matchId),
       ]);
       if (!active) return;
-
       setAccountMatch(savedMatch.match);
       setAccountReview(savedReview.review);
       setLoadError(savedMatch.error !== null);
-      if (savedAi) {
-        setAiCoach(savedAi);
-        setAiCoachSaved(true);
-      }
+      if (savedAi) { setAiCoach(savedAi); setAiCoachSaved(true); }
       setLoaded(true);
     }
-
     void loadReview();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [matchId]);
 
   async function handleGenerateAiCoach(
@@ -383,18 +380,15 @@ export default function ReviewPage() {
     setAiCoachLoading(true);
     setAiCoachError(null);
     setAiCoachSaveError(null);
-
     const finish: MatchFinish = currentLocalMatch
       ? currentLocalMatch.finish
       : accountCoachFinish(currentAccountMatch!);
-
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          result: currentMatch.result,
-          finish,
+          result: currentMatch.result, finish,
           playerColor: currentMatch.playerColor,
           moves: currentMatch.sanMoves,
           moveCount: currentMatch.moveCount,
@@ -402,9 +396,7 @@ export default function ReviewPage() {
           locale,
         }),
       });
-
       const data = (await res.json()) as CoachApiResponse;
-
       if (data.available) {
         const result: AiAnalysis = {
           mainMistake: data.mainMistake,
@@ -416,22 +408,16 @@ export default function ReviewPage() {
         setAiCoach(result);
         setAiCoachSaved(false);
         setTrainingState({});
-
         if (currentAccountMatch && matchId) {
           const supabase = createClient();
           if (supabase) {
             const { error } = await saveAiAnalysis(supabase, matchId, result);
-            if (error) {
-              setAiCoachSaveError(error);
-            } else {
-              setAiCoachSaved(true);
-            }
+            if (error) setAiCoachSaveError(error);
+            else setAiCoachSaved(true);
           }
         }
       } else {
-        setAiCoachError(
-          data.reason === "not_configured" ? "not_configured" : "unavailable",
-        );
+        setAiCoachError(data.reason === "not_configured" ? "not_configured" : "unavailable");
       }
     } catch {
       setAiCoachError("unavailable");
@@ -440,61 +426,33 @@ export default function ReviewPage() {
     }
   }
 
-  async function handleAskMoveQuestion(
-    currentMatch: LocalMatch | AccountMatch,
-  ) {
+  async function handleAskMoveQuestion(currentMatch: LocalMatch | AccountMatch) {
     const question = moveQuestion.trim();
-    if (!question) {
-      setMoveQError("empty_question");
-      return;
-    }
-    if (question.length > 500) {
-      setMoveQError("question_too_long");
-      return;
-    }
-
+    if (!question) { setMoveQError("empty_question"); return; }
+    if (question.length > 500) { setMoveQError("question_too_long"); return; }
     setMoveQLoading(true);
     setMoveQError(null);
     setMoveQResult(null);
-
     try {
       const res = await fetch("/api/coach/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          locale,
-          sanMoves: currentMatch.sanMoves,
-          selectedPly,
-          selectedSan,
-          selectedFen,
+          locale, sanMoves: currentMatch.sanMoves,
+          selectedPly, selectedSan, selectedFen,
           existingAnalysis: aiCoach
             ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
             : null,
-          question,
-          result: currentMatch.result,
+          question, result: currentMatch.result,
           playerColor: currentMatch.playerColor,
           moveCount: currentMatch.moveCount,
         }),
       });
-
       const data = (await res.json()) as MoveQuestionResponse;
-
       if (data.available) {
-        const result = {
-          answer: data.answer,
-          betterPlan: data.betterPlan,
-          trainingTip: data.trainingTip,
-        };
+        const result = { answer: data.answer, betterPlan: data.betterPlan, trainingTip: data.trainingTip };
         setMoveQResult(result);
-        setMoveQHistory((prev) => [
-          {
-            ply: selectedPly,
-            san: selectedSan,
-            question,
-            ...result,
-          },
-          ...prev,
-        ]);
+        setMoveQHistory((prev) => [{ ply: selectedPly, san: selectedSan, question, ...result }, ...prev]);
         setMoveQuestion("");
       } else {
         setMoveQError(data.reason);
@@ -521,12 +479,7 @@ export default function ReviewPage() {
     const chess = new Chess();
     const fens: string[] = [chess.fen()];
     for (const san of match?.sanMoves ?? []) {
-      try {
-        chess.move(san);
-        fens.push(chess.fen());
-      } catch {
-        break;
-      }
+      try { chess.move(san); fens.push(chess.fen()); } catch { break; }
     }
     return fens;
   }, [match?.sanMoves]);
@@ -543,10 +496,7 @@ export default function ReviewPage() {
         <p className="mt-2 max-w-xl text-sm text-arena-muted">
           {loadError ? t.errors.requestFailed : t.review.missingBody}
         </p>
-        <Link
-          href="/profile"
-          className="mt-4 inline-flex rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
-        >
+        <Link href="/profile" className="mt-4 inline-flex rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90">
           {t.review.backToProfile}
         </Link>
       </section>
@@ -556,521 +506,446 @@ export default function ReviewPage() {
   const review = localMatch
     ? buildDemoCoachReview(localMatch, locale)
     : accountReviewView(accountMatch as AccountMatch, accountReview, locale);
-  const lastSequence = match.sanMoves.slice(-6);
-  const opponentName = getOpponentDisplayName(
-    match.opponentNickname,
-    t.match.opponent.localRival,
-  );
+  const opponentName = getOpponentDisplayName(match.opponentNickname, t.match.opponent.localRival);
   const isAccount = accountMatch !== null;
 
+  const playerNickname = localMatch?.guestNickname ?? accountMatch?.playerNickname ?? "Player";
+  const opponentInitial = opponentName[0]?.toUpperCase() ?? "O";
+  const playerInitial = playerNickname[0]?.toUpperCase() ?? "P";
+
+  const resultStr = match.result === "win" ? "1 – 0" : match.result === "loss" ? "0 – 1" : "½ – ½";
+  const resultBadgeClass = match.result === "win"
+    ? "bg-arena-win/10 border border-arena-win/30 text-arena-win"
+    : match.result === "loss"
+    ? "bg-arena-loss/10 border border-arena-loss/30 text-arena-loss"
+    : "bg-arena-elevated border border-arena-border text-arena-muted";
+
+  const trainingMoments = aiCoach?.keyMoments?.filter((m) =>
+    ["mistake", "critical", "inaccuracy", "turning_point"].includes(m.type)
+  ) ?? [];
+
   return (
-    <div className="flex flex-col gap-5">
-      <section className="grid gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <div className="flex flex-wrap gap-2 text-sm">
-            <span className="rounded-full border border-arena-border bg-arena-elevated px-3 py-1 text-arena-gold">
-              {t.review.eyebrow}
-            </span>
-            <span className="rounded-full border border-arena-border bg-arena-elevated px-3 py-1 text-arena-muted">
-              {t.review.heuristic}
-            </span>
-          </div>
-          <div>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight">
-              {review.headline}
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm text-arena-muted">
-              {review.summary}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col justify-between rounded-lg border border-arena-border bg-arena-panel p-5">
-          <div>
-            <p className="text-arena-muted">{t.review.result}</p>
-            <p className="mt-2 text-3xl font-semibold">
-              {t.match.result[match.result]}{" "}
-              <span
-                className={match.ratingDelta >= 0 ? "text-arena-win" : "text-arena-loss"}
+    <div className="flex flex-col gap-0 -mx-4 -mt-5 sm:-mt-6">
+      {/* ── Game Header ── */}
+      <div className="border-b border-arena-border bg-arena-panel px-4 py-3">
+        <div className="mx-auto max-w-[1520px]">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Opening + subtitle */}
+            <div className="min-w-0">
+              <div
+                className="text-base font-semibold text-arena-text"
+                style={{ fontFamily: "var(--font-serif)", fontStyle: "italic" }}
               >
-                {match.ratingDelta > 0 ? "+" : ""}
-                {match.ratingDelta}
-              </span>
-            </p>
-            <p className="mt-2 text-sm text-arena-muted">
-              {t.common.vs} {opponentName}
-            </p>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link
-              href="/play"
-              className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
-            >
-              {t.common.playAgain}
-            </Link>
-            <Link
-              href="/profile"
-              className="rounded-md border border-arena-border px-4 py-2 font-medium hover:border-arena-gold"
-            >
-              {t.common.profile}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-          <p className="text-xs text-arena-muted">{t.review.finish}</p>
-          <p className="mt-1 font-semibold">
-            {finishLabel(localMatch, accountMatch, t)}
-          </p>
-        </div>
-        <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-          <p className="text-xs text-arena-muted">
-            {isAccount ? t.review.ratingDelta : t.review.ratingPath}
-          </p>
-          <p className="mt-1 font-semibold">
-            {localMatch ? (
-              <>
-                {localMatch.ratingBefore} {t.common.to} {localMatch.ratingAfter}
-              </>
-            ) : (
-              <>
-                {match.ratingDelta > 0 ? "+" : ""}
-                {match.ratingDelta} {t.common.rating}
-              </>
-            )}
-          </p>
-        </div>
-        <div className="rounded-lg border border-arena-border bg-arena-panel p-4">
-          <p className="text-xs text-arena-muted">{t.review.moveTrace}</p>
-          <p className="mt-1 font-semibold">{t.review.fullMoves(match.moveCount)}</p>
-        </div>
-      </section>
-
-      {/* Workspace: 2-col on lg — left: board+askAI, right: AI coach+timeline+training */}
-      <div className="grid gap-5 lg:grid-cols-2">
-
-        {/* LEFT column: Replay board + Ask AI */}
-        <div className="flex flex-col gap-5">
-          {match.sanMoves.length > 0 && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-              <p className="mb-4 text-sm font-medium text-arena-gold">
-                {t.review.replay.eyebrow}
-              </p>
-              <ReplayBoard
-                sanMoves={match.sanMoves}
-                playerColor={match.playerColor}
-                keyMovePly={aiCoach?.keyMovePly}
-                keyMoveSan={aiCoach?.keyMoveSan}
-                keyMoveComment={aiCoach?.keyMoveComment}
-                jumpToPly={jumpToPly}
-                onJumpApplied={() => setJumpToPly(undefined)}
-                onPlyChange={handlePlyChange}
-              />
-            </section>
-          )}
-
-          {match.sanMoves.length > 0 && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-              <p className="text-sm font-medium text-arena-gold">
-                {t.review.askMove.eyebrow}
-              </p>
-
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs text-arena-muted">
-                  {t.review.askMove.selectedMove}:
-                </span>
-                {selectedSan ? (
-                  <span className="rounded bg-arena-elevated px-2 py-0.5 font-mono text-sm font-medium">
-                    {selectedPly}. {selectedSan}
-                  </span>
-                ) : (
-                  <span className="text-xs text-arena-muted">
-                    {t.review.askMove.noMoveSelected}
-                  </span>
-                )}
+                {review.headline}
               </div>
-
-              {selectedSan && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {t.review.askMove.quickQuestions.map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => setMoveQuestion(q)}
-                      className="rounded-full border border-arena-border px-3 py-1 text-xs hover:border-arena-blue hover:text-arena-blue"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3 flex flex-col gap-2">
-                <textarea
-                  value={moveQuestion}
-                  onChange={(e) => setMoveQuestion(e.target.value.slice(0, 500))}
-                  placeholder={t.review.askMove.questionPlaceholder}
-                  disabled={!selectedSan || moveQLoading}
-                  rows={2}
-                  className="w-full resize-none rounded-md border border-arena-border bg-arena-elevated px-3 py-2 text-sm placeholder:text-arena-muted focus:border-arena-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-arena-muted">
-                    {moveQuestion.length}/500
-                  </span>
-                  <button
-                    onClick={() => void handleAskMoveQuestion(match)}
-                    disabled={!selectedSan || !moveQuestion.trim() || moveQLoading}
-                    className="rounded-md bg-arena-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {moveQLoading
-                      ? t.review.askMove.askingBtn
-                      : t.review.askMove.askBtn}
-                  </button>
-                </div>
+              <div className="font-mono text-xs text-arena-muted mt-0.5">
+                {t.review.eyebrow} · {finishLabel(localMatch, accountMatch, t)} · {match.moveCount} {t.review.fullMoves(match.moveCount).replace(/\d+\s*/, "")}
               </div>
-
-              {moveQError === "not_configured" && (
-                <p className="mt-3 text-sm text-arena-muted">
-                  {t.review.askMove.notConfigured}
-                </p>
-              )}
-              {moveQError === "empty_question" && (
-                <p className="mt-3 text-sm text-arena-muted">
-                  {t.review.askMove.emptyQuestion}
-                </p>
-              )}
-              {moveQError === "question_too_long" && (
-                <p className="mt-3 text-sm text-arena-muted">
-                  {t.review.askMove.questionTooLong}
-                </p>
-              )}
-              {moveQError &&
-                moveQError !== "not_configured" &&
-                moveQError !== "empty_question" &&
-                moveQError !== "question_too_long" && (
-                  <p className="mt-3 text-sm text-arena-muted">
-                    {t.review.askMove.error}
-                  </p>
-                )}
-
-              {moveQResult && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                    <p className="text-xs text-arena-muted">
-                      {t.review.askMove.answer}
-                    </p>
-                    <p className="mt-1 text-sm">{moveQResult.answer}</p>
-                  </div>
-                  <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                    <p className="text-xs text-arena-muted">
-                      {t.review.askMove.betterPlan}
-                    </p>
-                    <p className="mt-1 font-mono text-sm">
-                      {moveQResult.betterPlan}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                    <p className="text-xs text-arena-muted">
-                      {t.review.askMove.trainingTip}
-                    </p>
-                    <p className="mt-1 text-sm">{moveQResult.trainingTip}</p>
-                  </div>
-                </div>
-              )}
-
-              {moveQHistory.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-medium text-arena-muted">
-                    {t.review.askMove.history}
-                  </p>
-                  <div className="flex flex-col gap-3">
-                    {moveQHistory.map((item, index) => (
-                      <div
-                        key={index}
-                        className="rounded-md border border-arena-border bg-arena-elevated p-3"
-                      >
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          {item.san && (
-                            <span className="rounded bg-arena-panel px-1.5 py-0.5 font-mono text-xs">
-                              {item.ply}. {item.san}
-                            </span>
-                          )}
-                          <span className="text-xs text-arena-muted italic">
-                            {item.question}
-                          </span>
-                        </div>
-                        <p className="text-sm">{item.answer}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-        </div>
-
-        {/* RIGHT column: AI Coach summary + Key moments + Training */}
-        <div className="flex flex-col gap-5">
-          <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-arena-gold">
-                  {t.review.aiCoach.eyebrow}
-                </p>
-                <h2 className="mt-1 text-2xl font-semibold">
-                  {t.review.aiCoach.title}
-                </h2>
-              </div>
-              {!aiCoachLoading && (
-                <button
-                  onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
-                  className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
-                >
-                  {aiCoach ? t.review.aiCoach.regenerateBtn : t.review.aiCoach.generateBtn}
-                </button>
-              )}
             </div>
 
-            {aiCoachLoading && (
-              <p className="mt-4 text-sm text-arena-muted animate-pulse">
-                {t.review.aiCoach.generating}
-              </p>
-            )}
+            {/* Players */}
+            <div className="ml-auto flex items-center gap-2.5 flex-wrap">
+              {/* White / player */}
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold bg-arena-elevated border border-arena-border text-arena-text">
+                  {match.playerColor === "w" ? playerInitial : opponentInitial}
+                </div>
+                <div>
+                  <div className="text-xs font-semibold leading-tight">
+                    {match.playerColor === "w" ? playerNickname : opponentName}
+                  </div>
+                  <div className="font-mono text-[10px] text-arena-muted">
+                    {match.playerColor === "w" ? (localMatch?.ratingBefore ?? match.ratingDelta) : "—"}
+                  </div>
+                </div>
+              </div>
 
-            {aiCoachError === "not_configured" && (
-              <p className="mt-4 text-sm text-arena-muted">
-                {t.review.aiCoach.notConfigured}
-              </p>
-            )}
+              {/* Result separator */}
+              <div className="font-mono text-sm font-bold bg-arena-elevated border border-arena-border px-2.5 py-1 rounded">
+                {resultStr}
+              </div>
 
-            {aiCoachError === "unavailable" && (
-              <p className="mt-4 text-sm text-arena-muted">
-                {t.review.aiCoach.error}
-              </p>
-            )}
+              {/* Black / opponent */}
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold bg-arena-text text-arena-bg">
+                  {match.playerColor === "b" ? playerInitial : opponentInitial}
+                </div>
+                <div>
+                  <div className="text-xs font-semibold leading-tight">
+                    {match.playerColor === "b" ? playerNickname : opponentName}
+                  </div>
+                  <div className="font-mono text-[10px] text-arena-muted">—</div>
+                </div>
+              </div>
+            </div>
 
-            {aiCoach && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                  <p className="text-xs text-arena-muted">{t.review.aiCoach.mainMistake}</p>
-                  <p className="mt-1 text-sm">{aiCoach.mainMistake}</p>
+            {/* Result badge + nav */}
+            <div className="flex items-center gap-2">
+              <span className={`rounded px-2.5 py-1 text-xs font-semibold ${resultBadgeClass}`}>
+                {t.match.result[match.result]}
+                {" "}
+                <span className={match.ratingDelta >= 0 ? "text-arena-win" : "text-arena-loss"}>
+                  {match.ratingDelta > 0 ? "+" : ""}{match.ratingDelta}
+                </span>
+              </span>
+              <Link href="/play" className="rounded bg-arena-blue px-3 py-1 text-xs font-semibold text-white hover:opacity-90">
+                {t.common.playAgain}
+              </Link>
+              <Link href="/profile" className="rounded border border-arena-border px-3 py-1 text-xs font-medium hover:border-arena-gold">
+                {t.common.profile}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3-col workspace ── */}
+      <div className="px-4 pt-3.5 pb-6">
+        <div className="grid items-start gap-3 md:grid-cols-[minmax(320px,42%)_minmax(180px,24%)_minmax(0,1fr)]">
+          {/* ══ COL 1: BOARD ══ */}
+          <div className="order-1 min-w-0 md:sticky md:top-[60px]">
+            <ReplayBoard
+              sanMoves={match.sanMoves}
+              playerColor={match.playerColor}
+              keyMovePly={aiCoach?.keyMovePly}
+              keyMoveSan={aiCoach?.keyMoveSan}
+              keyMoveComment={aiCoach?.keyMoveComment}
+              jumpToPly={jumpToPly}
+              onJumpApplied={() => setJumpToPly(undefined)}
+              onPlyChange={handlePlyChange}
+            />
+          </div>
+
+          {/* ══ COL 2: KEY MOMENTS + NOTATION ══ */}
+          <div className="order-3 flex min-w-0 flex-col gap-3 md:order-none">
+            {/* Key Moments */}
+            <KeyMomentsPanel
+              className="hidden md:block"
+              keyMoments={aiCoach?.keyMoments}
+              moveMeta={`${match.moveCount} ${t.review.fullMoves(match.moveCount).replace(/\d+\s*/, "")}`}
+              tl={t.review.timeline}
+              onGoToMove={setJumpToPly}
+            />
+
+            {/* Stats mini-panel */}
+            <div className="panel">
+              <div className="panel-hd">
+                <span className="panel-ttl">{t.review.finish}</span>
+              </div>
+              <div className="p-3 flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-arena-muted">{t.review.finish}</span>
+                  <span className="font-mono text-xs font-semibold">{finishLabel(localMatch, accountMatch, t)}</span>
                 </div>
-                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                  <p className="text-xs text-arena-muted">{t.review.aiCoach.bestAlternative}</p>
-                  <p className="mt-1 text-sm font-mono">{aiCoach.bestAlternative}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-arena-muted">
+                    {isAccount ? t.review.ratingDelta : t.review.ratingPath}
+                  </span>
+                  <span className={`font-mono text-xs font-semibold ${match.ratingDelta >= 0 ? "text-arena-win" : "text-arena-loss"}`}>
+                    {localMatch ? `${localMatch.ratingBefore} → ${localMatch.ratingAfter}` : `${match.ratingDelta > 0 ? "+" : ""}${match.ratingDelta}`}
+                  </span>
                 </div>
-                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                  <p className="text-xs text-arena-muted">{t.review.aiCoach.whyImportant}</p>
-                  <p className="mt-1 text-sm">{aiCoach.whyImportant}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-arena-muted">{t.review.moveTrace}</span>
+                  <span className="font-mono text-xs font-semibold">{t.review.fullMoves(match.moveCount)}</span>
                 </div>
-                <div className="rounded-md border border-arena-border bg-arena-elevated p-4">
-                  <p className="text-xs text-arena-muted">{t.review.aiCoach.trainNext}</p>
-                  <p className="mt-1 text-sm">{aiCoach.trainNext}</p>
+              </div>
+            </div>
+
+            {/* Last sequence */}
+            {match.sanMoves.length > 0 && (
+              <div className="panel">
+                <div className="panel-hd">
+                  <span className="panel-ttl">{t.review.sequenceTitle}</span>
                 </div>
-                <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-arena-muted">
-                    {t.review.aiCoach.note}
+                <div className="p-3 flex flex-wrap gap-1.5">
+                  {match.sanMoves.slice(-6).map((move, i) => (
+                    <span key={i} className="rounded bg-arena-elevated px-2 py-0.5 font-mono text-xs">{move}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ══ COL 3: AI PANEL ══ */}
+          <div className="order-2 flex min-w-0 flex-col gap-3 md:order-none">
+            <div className="ai-panel">
+              {/* Coach Summary */}
+              <div className="ai-sec order-2 md:order-1">
+                <div className="ai-head">
+                  <div className="ai-icon">◈</div>
+                  <div>
+                    <div className="ai-name">{t.review.aiCoach.title}</div>
+                    <div className="text-[10px] text-arena-muted">{t.review.aiCoach.eyebrow}</div>
+                  </div>
+                  {aiCoach && (
+                    <div className="acc-chip">
+                      {match.result === "win" ? "✓ Win" : match.result === "loss" ? "✗ Loss" : "½ Draw"}
+                    </div>
+                  )}
+                </div>
+
+                {aiCoach && (
+                  <div className="coach-stats">
+                    <div>
+                      <div className="cstat-val" style={{ color: "var(--color-arena-loss)" }}>
+                        {aiCoach.keyMoments?.filter(m => m.type === "critical").length ?? 0}
+                      </div>
+                      <div className="cstat-lbl">Blunders</div>
+                    </div>
+                    <div>
+                      <div className="cstat-val" style={{ color: "#ea580c" }}>
+                        {aiCoach.keyMoments?.filter(m => m.type === "mistake").length ?? 0}
+                      </div>
+                      <div className="cstat-lbl">Mistakes</div>
+                    </div>
+                    <div>
+                      <div className="cstat-val" style={{ color: "#d97706" }}>
+                        {aiCoach.keyMoments?.filter(m => m.type === "inaccuracy").length ?? 0}
+                      </div>
+                      <div className="cstat-lbl">Inaccur.</div>
+                    </div>
+                    <div>
+                      <div className="cstat-val" style={{ color: "var(--color-arena-win)" }}>
+                        {aiCoach.keyMoments?.filter(m => m.type === "good").length ?? 0}
+                      </div>
+                      <div className="cstat-lbl">Good</div>
+                    </div>
+                  </div>
+                )}
+
+                {aiCoach && (
+                  <div className="flex flex-col gap-2">
+                    <div className="rounded border border-arena-border p-2.5" style={{ borderLeftWidth: 2, borderLeftColor: "var(--color-arena-blue)" }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-arena-muted mb-1">{t.review.aiCoach.mainMistake}</div>
+                      <p className="coach-text mt-0">{aiCoach.mainMistake}</p>
+                    </div>
+                    <div className="rounded border border-arena-border p-2.5" style={{ borderLeftWidth: 2, borderLeftColor: "var(--color-arena-gold)" }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-arena-muted mb-1">{t.review.aiCoach.bestAlternative}</div>
+                      <p className="coach-text mt-0 font-mono">{aiCoach.bestAlternative}</p>
+                    </div>
+                    <div className="rounded border border-arena-border p-2.5" style={{ borderLeftWidth: 2, borderLeftColor: "var(--color-arena-win)" }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-arena-muted mb-1">{t.review.aiCoach.trainNext}</div>
+                      <p className="coach-text mt-0">{aiCoach.trainNext}</p>
+                    </div>
+                  </div>
+                )}
+
+                {!aiCoach && !aiCoachLoading && !aiCoachError && (
+                  <p className="text-xs text-arena-muted mb-2">
+                    {isAccount ? t.review.accountBoundary : t.review.boundary}
                   </p>
+                )}
+                {aiCoachLoading && (
+                  <p className="text-xs text-arena-muted animate-pulse mb-2">{t.review.aiCoach.generating}</p>
+                )}
+                {aiCoachError === "not_configured" && (
+                  <p className="text-xs text-arena-muted mb-2">{t.review.aiCoach.notConfigured}</p>
+                )}
+                {aiCoachError === "unavailable" && (
+                  <p className="text-xs text-arena-muted mb-2">{t.review.aiCoach.error}</p>
+                )}
+
+                <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-arena-border">
+                  {!aiCoachLoading && (
+                    <button
+                      onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
+                      className="rounded bg-arena-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                    >
+                      {aiCoach ? t.review.aiCoach.regenerateBtn : t.review.aiCoach.generateBtn}
+                    </button>
+                  )}
                   {isAccount && aiCoachSaved && (
-                    <span className="rounded-full border border-arena-win/40 bg-arena-win/10 px-3 py-0.5 text-xs text-arena-win">
+                    <span className="rounded-full border border-arena-win/40 bg-arena-win/10 px-2 py-0.5 text-xs text-arena-win">
                       {t.review.aiCoach.saved}
                     </span>
                   )}
                   {!isAccount && (
-                    <p className="text-xs text-arena-muted">
-                      {t.review.aiCoach.guestNote}
-                    </p>
+                    <p className="text-[10px] text-arena-muted">{t.review.aiCoach.guestNote}</p>
                   )}
                 </div>
                 {aiCoachSaveError && (
-                  <p className="sm:col-span-2 text-xs text-arena-muted">
-                    {t.review.aiCoach.saveError}
-                  </p>
+                  <p className="text-xs text-arena-muted mt-1">{t.review.aiCoach.saveError}</p>
                 )}
               </div>
-            )}
 
-            {!aiCoach && !aiCoachLoading && !aiCoachError && (
-              <p className="mt-3 text-sm text-arena-muted">
-                {isAccount ? t.review.accountBoundary : t.review.boundary}
-              </p>
-            )}
-          </section>
+              {/* Ask AI section */}
+              {match.sanMoves.length > 0 && (
+                <div className="ai-sec order-1 md:order-2">
+                  <div className="ai-sec-label">
+                    {t.review.askMove.eyebrow}
+                    {selectedSan && (
+                      <span className="font-mono text-[10px] text-arena-muted font-normal normal-case">
+                        {selectedPly}. {selectedSan}
+                      </span>
+                    )}
+                  </div>
 
-          {match.sanMoves.length > 0 && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-              <p className="text-sm font-medium text-arena-gold">
-                {t.review.timeline.eyebrow}
-              </p>
-              {!aiCoach?.keyMoments?.length ? (
-                <p className="mt-3 text-sm text-arena-muted">
-                  {t.review.timeline.noKeyMoments}
-                </p>
-              ) : (
-                <div className="mt-4 flex flex-col gap-3">
-                  {aiCoach.keyMoments.map((moment, idx) => (
-                    <KeyMomentCard
-                      key={idx}
-                      moment={moment}
-                      tl={t.review.timeline}
-                      onGoToMove={() => setJumpToPly(moment.ply)}
+                  {/* Chat history */}
+                  {moveQHistory.length > 0 && (
+                    <div className="flex flex-col gap-2 mb-3 max-h-[240px] overflow-y-auto">
+                      {[...moveQHistory].reverse().map((item, i) => (
+                        <div key={i} className="flex flex-col gap-1.5">
+                          <div className="ai-msg-user">{item.question}</div>
+                          <div className="ai-msg-ai">{item.answer}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Current result */}
+                  {moveQResult && moveQHistory.length === 0 && (
+                    <div className="ai-msg-ai mb-3">{moveQResult.answer}</div>
+                  )}
+
+                  {/* Quick questions */}
+                  {selectedSan && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {t.review.askMove.quickQuestions.slice(0, 3).map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => setMoveQuestion(q)}
+                          className="rounded-full border border-arena-border px-2 py-0.5 text-[10px] hover:border-arena-blue hover:text-arena-blue"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Input row */}
+                  <div className="ask-row">
+                    <input
+                      value={moveQuestion}
+                      onChange={(e) => setMoveQuestion(e.target.value.slice(0, 500))}
+                      placeholder={selectedSan ? t.review.askMove.questionPlaceholder : t.review.askMove.noMoveSelected}
+                      disabled={!selectedSan || moveQLoading}
+                      className="ask-input"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void handleAskMoveQuestion(match);
+                        }
+                      }}
                     />
-                  ))}
+                    <button
+                      onClick={() => void handleAskMoveQuestion(match)}
+                      disabled={!selectedSan || !moveQuestion.trim() || moveQLoading}
+                      className="ask-btn"
+                    >
+                      {moveQLoading ? "…" : "→"}
+                    </button>
+                  </div>
+
+                  {moveQError === "not_configured" && (
+                    <p className="mt-2 text-[10px] text-arena-muted">{t.review.askMove.notConfigured}</p>
+                  )}
+                  {moveQError && moveQError !== "not_configured" && moveQError !== "empty_question" && moveQError !== "question_too_long" && (
+                    <p className="mt-2 text-[10px] text-arena-muted">{t.review.askMove.error}</p>
+                  )}
                 </div>
               )}
-            </section>
-          )}
 
-          {match.sanMoves.length > 0 && (
-            <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-              <p className="text-sm font-medium text-arena-gold">
-                {t.review.training.eyebrow}
-              </p>
-              {(() => {
-                const trainingMoments = aiCoach?.keyMoments?.filter((m) =>
-                  ["mistake", "critical", "inaccuracy", "turning_point"].includes(m.type),
-                ) ?? [];
-                if (trainingMoments.length === 0) {
-                  return (
-                    <p className="mt-3 text-sm text-arena-muted">
-                      {t.review.training.noTrainingMoments}
-                    </p>
-                  );
-                }
-                return (
-                  <div className="mt-4 flex flex-col gap-5">
-                    {trainingMoments.map((moment, idx) => {
-                      const state: TrainingMomentState = trainingState[moment.ply] ?? {
-                        userAnswer: "",
-                        revealed: false,
-                        aiResult: null,
-                        aiLoading: false,
-                        aiError: null,
-                      };
-                      const patchState = (patch: Partial<TrainingMomentState>) =>
-                        setTrainingState((prev) => ({
-                          ...prev,
-                          [moment.ply]: { ...state, ...patch },
-                        }));
-                      return (
-                        <TrainingMomentCard
-                          key={idx}
-                          moment={moment}
-                          state={state}
-                          tr={t.review.training}
-                          tl={t.review.timeline}
-                          ta={t.review.askMove}
-                          onGoToMove={() => setJumpToPly(moment.ply)}
-                          onAnswerChange={(v) => patchState({ userAnswer: v })}
-                          onReveal={() => patchState({ revealed: true })}
-                          onAskAi={async () => {
-                            const q = state.userAnswer.trim();
-                            if (!q) return;
-                            patchState({ aiLoading: true, aiError: null, aiResult: null });
-                            try {
-                              const fen = replayPositions[moment.ply] ?? replayPositions[replayPositions.length - 1] ?? "";
-                              const res = await fetch("/api/coach/move", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  locale,
-                                  sanMoves: match.sanMoves,
-                                  selectedPly: moment.ply,
-                                  selectedSan: moment.san ?? null,
-                                  selectedFen: fen,
-                                  existingAnalysis: aiCoach
-                                    ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
-                                    : null,
-                                  question: q,
-                                  result: match.result,
-                                  playerColor: match.playerColor,
-                                  moveCount: match.moveCount,
-                                }),
-                              });
-                              const data = (await res.json()) as MoveQuestionResponse;
-                              if (data.available) {
-                                patchState({
-                                  aiResult: {
-                                    answer: data.answer,
-                                    betterPlan: data.betterPlan,
-                                    trainingTip: data.trainingTip,
-                                  },
-                                  aiLoading: false,
+              <KeyMomentsPanel
+                className="order-3 md:hidden"
+                keyMoments={aiCoach?.keyMoments}
+                moveMeta={`${match.moveCount} ${t.review.fullMoves(match.moveCount).replace(/\d+\s*/, "")}`}
+                tl={t.review.timeline}
+                onGoToMove={setJumpToPly}
+              />
+
+              {/* Training from Mistakes */}
+              {match.sanMoves.length > 0 && (
+                <div className="ai-sec order-4">
+                  <div className="ai-sec-label">{t.review.training.eyebrow}</div>
+                  {trainingMoments.length === 0 ? (
+                    <p className="text-xs text-arena-muted">{t.review.training.noTrainingMoments}</p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {trainingMoments.map((moment, idx) => {
+                        const state: TrainingMomentState = trainingState[moment.ply] ?? {
+                          userAnswer: "", revealed: false, aiResult: null, aiLoading: false, aiError: null,
+                        };
+                        const patchState = (patch: Partial<TrainingMomentState>) =>
+                          setTrainingState((prev) => ({ ...prev, [moment.ply]: { ...state, ...patch } }));
+                        return (
+                          <TrainingMomentCard
+                            key={idx}
+                            moment={moment}
+                            state={state}
+                            tr={t.review.training}
+                            tl={t.review.timeline}
+                            ta={t.review.askMove}
+                            onGoToMove={() => setJumpToPly(moment.ply)}
+                            onAnswerChange={(v) => patchState({ userAnswer: v })}
+                            onReveal={() => patchState({ revealed: true })}
+                            onAskAi={async () => {
+                              const q = state.userAnswer.trim();
+                              if (!q) return;
+                              patchState({ aiLoading: true, aiError: null, aiResult: null });
+                              try {
+                                const fen = replayPositions[moment.ply] ?? replayPositions[replayPositions.length - 1] ?? "";
+                                const res = await fetch("/api/coach/move", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    locale, sanMoves: match.sanMoves,
+                                    selectedPly: moment.ply, selectedSan: moment.san ?? null,
+                                    selectedFen: fen,
+                                    existingAnalysis: aiCoach
+                                      ? { mainMistake: aiCoach.mainMistake, trainNext: aiCoach.trainNext }
+                                      : null,
+                                    question: q, result: match.result,
+                                    playerColor: match.playerColor, moveCount: match.moveCount,
+                                  }),
                                 });
-                              } else {
-                                patchState({ aiError: data.reason, aiLoading: false });
+                                const data = (await res.json()) as MoveQuestionResponse;
+                                if (data.available) {
+                                  patchState({ aiResult: { answer: data.answer, betterPlan: data.betterPlan, trainingTip: data.trainingTip }, aiLoading: false });
+                                } else {
+                                  patchState({ aiError: data.reason, aiLoading: false });
+                                }
+                              } catch {
+                                patchState({ aiError: "unavailable", aiLoading: false });
                               }
-                            } catch {
-                              patchState({ aiError: "unavailable", aiLoading: false });
-                            }
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </section>
-          )}
-        </div>
-      </div>
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
-      {/* Reference section: demo coach signals + last sequence + habit */}
-      <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-arena-gold">{t.review.notesEyebrow}</p>
-            <h2 className="mt-1 text-2xl font-semibold">{t.review.signalsTitle}</h2>
-          </div>
-          <p className="text-sm text-arena-muted">
-            {t.review.signalsBody}
-          </p>
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          {review.insights.map((insight) => (
-            <article
-              key={insight.title}
-              className="rounded-md border border-arena-border bg-arena-elevated p-4"
-            >
-              <h3 className="font-medium">{insight.title}</h3>
-              <p className="mt-2 text-sm text-arena-muted">{insight.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+              {/* Training advice */}
+              <div className="ai-sec order-5">
+                <div className="ai-sec-label">{t.review.trainEyebrow}</div>
+                <p className="coach-text">{review.trainingAdvice}</p>
+                <p className="text-[10px] text-arena-muted mt-2">
+                  {isAccount ? t.review.accountBoundary : t.review.boundary}
+                </p>
+              </div>
+            </div>
 
-      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">{t.review.moveTrace}</p>
-          <h2 className="mt-2 text-2xl font-semibold">{t.review.sequenceTitle}</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {lastSequence.length === 0 ? (
-              <p className="text-sm text-arena-muted">
-                {t.review.noSanMoves}
-              </p>
-            ) : (
-              lastSequence.map((move, index) => (
-                <span
-                  key={`${move}-${index}`}
-                  className="rounded-md bg-arena-elevated px-3 py-1.5 font-mono text-sm"
-                >
-                  {move}
-                </span>
-              ))
+            {/* Coach insights */}
+            {review.insights.length > 0 && (
+              <div className="panel">
+                <div className="panel-hd">
+                  <span className="panel-ttl">{t.review.signalsTitle}</span>
+                </div>
+                <div className="p-3 flex flex-col gap-2">
+                  {review.insights.map((insight) => (
+                    <div key={insight.title} className="rounded border border-arena-border bg-arena-elevated p-2.5">
+                      <div className="text-xs font-semibold">{insight.title}</div>
+                      <p className="mt-1 text-xs text-arena-muted">{insight.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
-
-        <div className="rounded-lg border border-arena-border bg-arena-panel p-5">
-          <p className="text-sm font-medium text-arena-gold">{t.review.trainEyebrow}</p>
-          <h2 className="mt-2 text-2xl font-semibold">{t.review.habitTitle}</h2>
-          <p className="mt-3 text-sm">{review.trainingAdvice}</p>
-          <p className="mt-3 text-xs text-arena-muted">
-            {isAccount ? t.review.accountBoundary : t.review.boundary}
-          </p>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }

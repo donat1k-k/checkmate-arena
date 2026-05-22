@@ -103,7 +103,7 @@ export default function ReplayBoard({
     !!keyMoveComment;
 
   const navBtnClass =
-    "rounded border border-arena-border px-2.5 py-1 text-sm hover:border-arena-blue disabled:cursor-not-allowed disabled:opacity-40";
+    "rounded border border-arena-border px-2.5 py-1 text-sm font-mono hover:border-arena-blue hover:text-arena-blue disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <div className="flex flex-col gap-3">
@@ -199,7 +199,7 @@ export default function ReplayBoard({
                   onClick={() => setCurrentPly(whitePly)}
                   className={`rounded px-1.5 py-0.5 text-left font-mono text-sm transition-colors ${
                     currentPly === whitePly
-                      ? "bg-arena-blue text-white"
+                      ? "bg-arena-amber-bg text-arena-blue font-semibold"
                       : "hover:bg-arena-panel"
                   }`}
                 >
@@ -210,7 +210,7 @@ export default function ReplayBoard({
                     onClick={() => setCurrentPly(blackPly)}
                     className={`rounded px-1.5 py-0.5 text-left font-mono text-sm transition-colors ${
                       currentPly === blackPly
-                        ? "bg-arena-blue text-white"
+                        ? "bg-arena-amber-bg text-arena-blue font-semibold"
                         : "hover:bg-arena-panel"
                     }`}
                   >

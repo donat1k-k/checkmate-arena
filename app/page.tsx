@@ -1,124 +1,281 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import ArenaPreviewBoard from "@/components/chess/ArenaPreviewBoard";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
+import { loadMatches, loadGuestProfile, type LocalMatch } from "@/lib/demo/progress";
 
 export default function HomePage() {
   const { t } = usePreferences();
+  const [matches, setMatches] = useState<LocalMatch[]>([]);
+  const [guestRating, setGuestRating] = useState<number | null>(null);
+  const [wins, setWins] = useState(0);
+  const [losses, setLosses] = useState(0);
+  const [draws, setDraws] = useState(0);
+
+  useEffect(() => {
+    const saved = loadMatches();
+    setMatches(saved.slice().reverse().slice(0, 5));
+    const profile = loadGuestProfile();
+    if (profile) {
+      setGuestRating(profile.rating);
+      setWins(profile.wins);
+      setLosses(profile.losses);
+      setDraws(profile.draws);
+    }
+  }, []);
 
   return (
-    <div className="flex flex-col gap-10 pb-4">
-      <section className="relative isolate min-h-[540px] overflow-hidden border-b border-arena-border pb-10 pt-8 sm:min-h-[580px] sm:pt-14">
-        <div className="pointer-events-none absolute -right-32 top-32 -z-10 w-[420px] opacity-10 sm:-right-16 sm:top-10 sm:w-[560px] sm:opacity-70 lg:right-0">
-          <ArenaPreviewBoard />
-        </div>
-        <div className="pointer-events-none absolute right-0 top-8 -z-10 hidden w-60 rounded-lg border border-arena-border bg-arena-panel/95 p-4 shadow-2xl shadow-black/30 lg:block">
-          <p className="text-xs font-medium text-arena-gold">{t.home.coachReady}</p>
-          <p className="mt-2 text-lg font-semibold">{t.home.coachTitle}</p>
-          <p className="mt-2 text-sm text-arena-muted">
-            {t.home.coachBody}
-          </p>
-        </div>
-        <div className="pointer-events-none absolute bottom-16 right-5 -z-10 hidden rounded-lg border border-arena-border bg-arena-panel/95 px-4 py-3 shadow-2xl shadow-black/30 md:block">
-          <p className="text-xs text-arena-muted">{t.home.resultLabel}</p>
-          <p className="mt-1 font-semibold text-arena-win">{t.home.winRating}</p>
-        </div>
-
-        <div className="flex max-w-2xl flex-col gap-6">
-          <div className="flex flex-wrap gap-2 text-sm">
-            {t.home.badges.map((badge, index) => (
-              <span
-                key={badge}
-                className={
-                  index === 0
-                    ? "rounded-full border border-arena-border bg-arena-panel/90 px-3 py-1 text-arena-gold"
-                    : "rounded-full border border-arena-border bg-arena-panel/90 px-3 py-1 text-arena-muted"
-                }
-              >
-                {badge}
-              </span>
-            ))}
-          </div>
-          <div>
-            <h1 className="text-5xl font-bold tracking-tight text-arena-text sm:text-6xl">
-              Checkmate Arena
-            </h1>
-            <p className="mt-4 max-w-lg text-base text-arena-text sm:text-lg">
-              {t.home.intro}
-            </p>
-            <p className="mt-3 max-w-lg text-sm text-arena-muted">
-              {t.home.localIntro}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/play"
-              className="rounded-md bg-arena-blue px-5 py-3 font-medium text-white hover:opacity-90"
-            >
-              {t.home.playCta}
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="rounded-md border border-arena-border bg-arena-panel/90 px-5 py-3 font-medium hover:border-arena-gold"
-            >
-              {t.home.leaderboardCta}
-            </Link>
-          </div>
-          <dl className="grid max-w-2xl gap-3 sm:grid-cols-3">
-            {t.home.signals.map((signal) => (
-              <div
-                key={signal.label}
-                className="rounded-md border border-arena-border bg-arena-panel/90 px-4 py-3"
-              >
-                <dt className="text-xs text-arena-muted">{signal.label}</dt>
-                <dd className="mt-1 font-semibold">{signal.value}</dd>
+    <div className="flex flex-col gap-0 -mx-4 -mt-5 sm:-mt-6">
+      {/* ── HERO ── */}
+      <div className="border-b border-arena-border bg-arena-panel px-4 py-9">
+        <div className="mx-auto max-w-[1280px]">
+          <div className="flex items-center gap-8 flex-wrap">
+            {/* Hero text */}
+            <div className="flex-1 min-w-[280px]">
+              <div className="font-mono text-xs font-semibold text-arena-blue uppercase tracking-widest mb-3">
+                ◈ {t.home.badges[0]}
               </div>
-            ))}
-          </dl>
-        </div>
-      </section>
+              <h1 className="text-[2.4rem] font-extrabold leading-[1.12] text-arena-text mb-3">
+                Your Arena.<br />
+                <em style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", color: "var(--color-arena-blue)" }}>
+                  Play sharper.
+                </em>
+              </h1>
+              <p className="text-base text-arena-muted max-w-[480px] leading-relaxed mb-6">
+                {t.home.intro}
+              </p>
+              <div className="flex gap-2.5 flex-wrap">
+                <Link
+                  href="/play"
+                  className="rounded-md bg-arena-blue px-5 py-2.5 font-semibold text-white hover:opacity-90"
+                >
+                  ♟ {t.home.playCta}
+                </Link>
+                <Link
+                  href="/profile"
+                  className="rounded-md border border-arena-border bg-arena-elevated px-5 py-2.5 font-medium hover:border-arena-gold"
+                >
+                  ◈ {t.home.leaderboardCta}
+                </Link>
+              </div>
+            </div>
 
-      <section className="grid gap-3 md:grid-cols-3">
-        {t.home.loopSteps.map((step, index) => (
-          <article
-            key={step.title}
-            className="rounded-lg border border-arena-border bg-arena-panel p-5"
-          >
-            <p className="text-sm font-medium text-arena-gold">0{index + 1}</p>
-            <h2 className="mt-3 text-xl font-semibold">{step.title}</h2>
-            <p className="mt-2 text-sm text-arena-muted">{step.body}</p>
-          </article>
-        ))}
-      </section>
+            {/* Stats card */}
+            <div className="w-full min-w-0 rounded-xl border border-arena-border bg-arena-bg px-5 py-4 sm:w-auto sm:min-w-[220px] sm:shrink-0">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="font-mono text-[2.2rem] font-bold leading-none">{guestRating ?? 1000}</span>
+                {wins > 0 && (
+                  <span className="font-mono text-sm font-semibold text-arena-win">▲ +{wins * 12}</span>
+                )}
+              </div>
+              <div className="text-xs text-arena-muted mb-3">ELO Rating · Blitz</div>
+              <div
+                className="grid grid-cols-3 overflow-hidden rounded border border-arena-border mb-3"
+                style={{ gap: "1px", background: "var(--color-arena-border)" }}
+              >
+                <div className="bg-arena-panel px-2 py-2 text-center">
+                  <div className="font-mono text-base font-semibold text-arena-win">{wins}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">Win</div>
+                </div>
+                <div className="bg-arena-panel px-2 py-2 text-center">
+                  <div className="font-mono text-base font-semibold text-arena-loss">{losses}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">Loss</div>
+                </div>
+                <div className="bg-arena-panel px-2 py-2 text-center">
+                  <div className="font-mono text-base font-semibold text-arena-muted">{draws}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-arena-muted">Draw</div>
+                </div>
+              </div>
+              <div className="text-xs text-arena-muted">
+                {t.home.localIntro}
+              </div>
+            </div>
 
-      <section className="grid gap-5 border-t border-arena-border pt-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-        <div>
-          <p className="text-sm font-medium text-arena-gold">{t.home.loopEyebrow}</p>
-          <h2 className="mt-2 text-3xl font-bold">
-            {t.home.loopTitle}
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm text-arena-muted">
-            {t.home.loopBody}
-          </p>
+            {/* Board preview (decorative, hidden on small) */}
+            <div className="hidden xl:block w-[220px] opacity-60 shrink-0">
+              <ArenaPreviewBoard />
+            </div>
+          </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <Link
-            href="/profile"
-            className="rounded-lg border border-arena-border bg-arena-panel p-4 hover:border-arena-gold"
-          >
-            <p className="text-sm text-arena-muted">{t.home.profileLabel}</p>
-            <p className="mt-1 font-semibold">{t.home.profileCard}</p>
-          </Link>
-          <Link
-            href="/pro"
-            className="rounded-lg border border-arena-border bg-arena-panel p-4 hover:border-arena-gold"
-          >
-            <p className="text-sm text-arena-muted">{t.home.proLabel}</p>
-            <p className="mt-1 font-semibold">{t.home.proCard}</p>
-          </Link>
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="px-4 py-7">
+        <div className="mx-auto max-w-[1280px]">
+          <div className="grid gap-6 lg:grid-cols-[1fr_300px] items-start">
+
+            {/* Left: Recent games + loop steps */}
+            <div className="flex flex-col gap-6">
+              {/* Recent games */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-arena-muted">
+                    {matches.length > 0 ? "Recent Games" : t.home.loopTitle}
+                  </span>
+                  <Link href="/profile" className="text-xs text-arena-blue hover:opacity-80">
+                    View all →
+                  </Link>
+                </div>
+
+                {matches.length > 0 ? (
+                  <div className="panel overflow-hidden">
+                    {matches.map((match, idx) => (
+                      <Link
+                        key={match.id}
+                        href={`/review/${match.id}`}
+                        className="flex items-center gap-3 px-3.5 py-2.5 border-b border-arena-border last:border-b-0 hover:bg-arena-elevated transition-colors"
+                      >
+                        {/* Result dot */}
+                        <div
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{
+                            background: match.result === "win"
+                              ? "var(--color-arena-win)"
+                              : match.result === "loss"
+                              ? "var(--color-arena-loss)"
+                              : "var(--color-arena-muted)"
+                          }}
+                        />
+                        {/* Result badge */}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          match.result === "win"
+                            ? "bg-arena-win/10 text-arena-win"
+                            : match.result === "loss"
+                            ? "bg-arena-loss/10 text-arena-loss"
+                            : "bg-arena-elevated text-arena-muted"
+                        }`}>
+                          {t.match.result[match.result]}
+                        </span>
+                        {/* Opponent */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{match.opponentNickname}</div>
+                          <div className="text-[10px] text-arena-muted">
+                            {match.finish} · {match.moveCount} moves
+                          </div>
+                        </div>
+                        {/* Delta */}
+                        <span className={`font-mono text-xs font-semibold ${match.ratingDelta >= 0 ? "text-arena-win" : "text-arena-loss"}`}>
+                          {match.ratingDelta > 0 ? "+" : ""}{match.ratingDelta}
+                        </span>
+                        {/* Review btn */}
+                        <span className="text-[10px] font-semibold text-arena-blue bg-arena-amber-bg border border-arena-amber-border rounded px-2 py-0.5">
+                          ◈ Review
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  /* Loop steps when no games yet */
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {t.home.loopSteps.map((step, index) => (
+                      <article
+                        key={step.title}
+                        className="panel p-4"
+                      >
+                        <p className="font-mono text-xs font-semibold text-arena-blue">0{index + 1}</p>
+                        <h2 className="mt-2 text-base font-semibold">{step.title}</h2>
+                        <p className="mt-1 text-xs text-arena-muted">{step.body}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* AI insight card */}
+              <div
+                className="rounded-xl border p-4"
+                style={{ background: "var(--color-arena-amber-bg)", borderColor: "var(--color-arena-amber-border)" }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-arena-blue text-sm">◈</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-arena-blue">AI Coach Insight</span>
+                </div>
+                <p className="text-sm text-arena-muted leading-relaxed mb-3">
+                  {t.home.loopBody}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {t.home.signals.map((signal) => (
+                    <span key={signal.label} className="rounded-full bg-arena-panel border border-arena-border px-3 py-1 text-xs font-semibold">
+                      <span className="font-mono text-arena-text">{signal.value}</span>
+                      <span className="text-arena-muted ml-1.5">{signal.label}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right sidebar */}
+            <div className="flex flex-col gap-4">
+              {/* Quick actions */}
+              <div className="panel">
+                <div className="panel-hd">
+                  <span className="panel-ttl">Quick Actions</span>
+                </div>
+                <div className="p-2 flex flex-col gap-1.5">
+                  <Link
+                    href="/play"
+                    className="flex items-center gap-3 rounded-lg border border-arena-blue bg-arena-blue px-4 py-3 text-white hover:opacity-90 transition-opacity"
+                  >
+                    <span className="text-lg">♟</span>
+                    <div>
+                      <div className="text-sm font-semibold">{t.home.playCta}</div>
+                      <div className="text-[10px] opacity-75">{t.play.localRanked}</div>
+                    </div>
+                  </Link>
+                  {matches.length > 0 && (
+                    <Link
+                      href={`/review/${matches[0]?.id}`}
+                      className="flex items-center gap-3 rounded-lg border border-arena-border bg-arena-panel px-4 py-3 hover:bg-arena-elevated transition-colors"
+                    >
+                      <span className="text-lg text-arena-blue">◈</span>
+                      <div>
+                        <div className="text-sm font-semibold">Review Last Game</div>
+                        <div className="text-[10px] text-arena-muted">{t.review.eyebrow}</div>
+                      </div>
+                    </Link>
+                  )}
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-3 rounded-lg border border-arena-border bg-arena-panel px-4 py-3 hover:bg-arena-elevated transition-colors"
+                  >
+                    <span className="text-lg">📊</span>
+                    <div>
+                      <div className="text-sm font-semibold">{t.home.profileCard}</div>
+                      <div className="text-[10px] text-arena-muted">{t.home.profileLabel}</div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+
+              {/* This week stats */}
+              <div className="panel">
+                <div className="panel-hd">
+                  <span className="panel-ttl">This Session</span>
+                </div>
+                <div className="p-3 grid grid-cols-2 gap-2">
+                  {t.home.signals.map((signal) => (
+                    <div key={signal.label} className="rounded bg-arena-elevated p-2.5">
+                      <div className="font-mono text-sm font-bold">{signal.value}</div>
+                      <div className="text-[10px] text-arena-muted mt-0.5">{signal.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pro card */}
+              <Link
+                href="/pro"
+                className="panel p-4 hover:border-arena-gold transition-colors block"
+              >
+                <p className="text-xs text-arena-muted">{t.home.proLabel}</p>
+                <p className="mt-1 font-semibold text-sm">{t.home.proCard}</p>
+              </Link>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

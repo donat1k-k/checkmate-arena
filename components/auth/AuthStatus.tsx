@@ -7,11 +7,16 @@ import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import { createClient } from "@/lib/supabase/client";
 
-export default function AuthStatus() {
+type AuthStatusProps = {
+  variant?: "desktop" | "mobileMenu";
+};
+
+export default function AuthStatus({ variant = "desktop" }: AuthStatusProps) {
   const router = useRouter();
   const { t } = usePreferences();
   const [user, setUser] = useState<User | null>(null);
   const [pending, setPending] = useState(false);
+  const isMobileMenu = variant === "mobileMenu";
 
   useEffect(() => {
     const supabase = createClient();
@@ -47,7 +52,11 @@ export default function AuthStatus() {
     return (
       <Link
         href="/auth/sign-in"
-        className="rounded-md px-3 py-1.5 hover:bg-arena-elevated"
+        className={
+          isMobileMenu
+            ? "block rounded-md px-3 py-2 text-sm font-medium hover:bg-arena-elevated"
+            : "rounded-md px-3 py-1.5 hover:bg-arena-elevated"
+        }
       >
         {t.auth.signIn}
       </Link>
@@ -55,10 +64,20 @@ export default function AuthStatus() {
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+    <div
+      className={
+        isMobileMenu
+          ? "flex min-w-0 flex-col gap-1"
+          : "flex min-w-0 flex-wrap items-center justify-end gap-1"
+      }
+    >
       <span
         title={user.email ?? t.auth.account}
-        className="max-w-44 truncate rounded-md border border-arena-border bg-arena-panel px-3 py-1.5 text-xs text-arena-muted"
+        className={
+          isMobileMenu
+            ? "w-full truncate rounded-md border border-arena-border bg-arena-panel px-3 py-2 text-xs text-arena-muted"
+            : "max-w-44 truncate rounded-md border border-arena-border bg-arena-panel px-3 py-1.5 text-xs text-arena-muted"
+        }
       >
         {t.auth.signedInAs}{" "}
         <span className="text-arena-text">{user.email ?? t.auth.account}</span>
@@ -67,7 +86,11 @@ export default function AuthStatus() {
         type="button"
         disabled={pending}
         onClick={signOut}
-        className="rounded-md px-3 py-1.5 hover:bg-arena-elevated disabled:opacity-50"
+        className={
+          isMobileMenu
+            ? "rounded-md px-3 py-2 text-left text-sm hover:bg-arena-elevated disabled:opacity-50"
+            : "rounded-md px-3 py-1.5 hover:bg-arena-elevated disabled:opacity-50"
+        }
       >
         {t.auth.signOut}
       </button>

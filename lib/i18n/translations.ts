@@ -49,6 +49,8 @@ export const translations = {
       footerLoop: "Local demo loop: play, rate, review, progress.",
       rankedDemo: "Ranked demo",
       proConcept: "Pro concept",
+      openMenu: "Open menu",
+      closeMenu: "Close menu",
     },
     settings: {
       eyebrow: "Settings",
@@ -512,6 +514,8 @@ export const translations = {
       footerLoop: "Локальная demo-петля: партия, рейтинг, разбор, прогресс.",
       rankedDemo: "Ranked demo",
       proConcept: "Концепт Pro",
+      openMenu: "Открыть меню",
+      closeMenu: "Закрыть меню",
     },
     settings: {
       eyebrow: "Настройки",

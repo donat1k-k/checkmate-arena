@@ -1018,3 +1018,113 @@ Review workspace теперь — структурированный 2-col layou
 - **QA-проход** — полный функциональный тест после завершения структурного блока
 - **Full visual redesign** — отдельный этап
 - **finish_reason** — колонка в `matches` для корректного label ничьих
+
+## Этап 7.0B — Design Transfer: Visual System Migration. Статус: завершён (2026-05-22)
+
+### Цель
+Перенести визуальный язык прототипа `design-reference/claude-design-v1/` в рабочий Next.js-проект. Бизнес-логика, Supabase-схема, chess engine, auth-flow и i18n-ключи — не тронуты.
+
+### Сделано
+
+**Phase A — CSS tokens (`app/globals.css`)**
+- Перемаплены все `--color-arena-*` на тёплую amber-систему.
+- Dark: `arena-blue → #F59E0B` (amber-400), `arena-gold → #D97706`, bg/panel/border — тёплые почти-чёрные.
+- Light: `arena-blue → #B45309` (amber-700/cognac), warm cream backgrounds (#FDFCFA, #FFF, #F5F2ED).
+- Новые токены: `arena-amber-bg` и `arena-amber-border` (amber-50 в light, rgba amber в dark).
+- Градиенты body обновлены на amber-оттенки. `::selection` → amber.
+- `--font-sans: 'Plus Jakarta Sans'`, `--font-mono: 'JetBrains Mono'` добавлены в `@theme`.
+
+**Phase B — Fonts (`app/layout.tsx`)**
+- Google Fonts preconnect + stylesheet для Plus Jakarta Sans (400/500/600/700/800) и JetBrains Mono (400/500/600).
+- `<body>` получил `font-sans` для активации Plus Jakarta Sans.
+
+**Phase C — Shell Nav (`components/layout/SiteShell.tsx`)**
+- `usePathname()` → активная ссылка: `bg-arena-amber-bg text-arena-blue`.
+- Fix: `pathname.startsWith(href + "/")` вместо `href` — устранил ложное срабатывание `/pro` при `/profile`.
+- Logo: amber-квадраты, `py-2`, `max-w-6xl` оставлен.
+
+**Phase D — Review (`app/review/[matchId]/page.tsx`)**
+- Cockpit-шапка: eyebrow `font-mono text-xs uppercase tracking-widest`, result badge с amber/green/red.
+- `momentBorderClass()` хелпер: `border-l-2` с цветом по типу момента (good=green, inaccuracy=yellow, mistake=orange, critical=red, turning_point=amber).
+- AI Coach 4 карточки: `border-l-2 border-l-arena-blue/gold/win`.
+- `text-foreground` → `text-arena-text` (исправлен невалидный Tailwind-токен).
+
+**Phase D — ReplayBoard (`components/chess/ReplayBoard.tsx`)**
+- Активный ход: `bg-arena-amber-bg text-arena-blue` вместо `bg-arena-blue text-white`.
+- Nav-кнопки: `hover:border-arena-blue hover:text-arena-blue`.
+
+**Phase E — Play (`app/play/page.tsx`)**
+- Inline SELECT_STYLE → amber `rgba(245,158,11,0.45)`, TARGET_STYLE → amber radial gradient.
+- Restored game banner: `border-arena-amber-border bg-arena-amber-bg`.
+- Все section eyebrows: `font-mono text-xs uppercase tracking-widest text-arena-muted`.
+
+**Phase F–J — Remaining pages**
+- Home, Profile, Leaderboard, Settings, Auth — amber accent, mono labels/values, eyebrow pattern.
+
+### Верификация
+- `npm run build` — OK (14 routes, TypeScript OK).
+- `git diff --check` — OK (только LF→CRLF warnings, стандарт для репо).
+- Browser preview (Preview MCP):
+  - Dark/light theme home, play, profile, leaderboard, settings — выглядят корректно.
+  - Nav active-link: подсвечивается только правильная страница.
+  - RU/EN переключение — строки следуют языку.
+  - Light/dark theme toggle в Settings — работает, preferences сохраняются.
+  - Mobile 375px home — нет горизонтального overflow.
+  - Auth /sign-in — content присутствует (подтверждено accessibility snapshot + computed styles).
+
+### Что не менялось
+Chess engine, Supabase schema/auth/queries, product loop storage, i18n keys (новые не добавлялись), multiplayer, realtime, Docker/deploy.
+
+### Известные ограничения
+- `/review` с реальным матчем не тестировался в browser preview (нет guest profile в тестовой среде); TypeScript сборка гарантирует корректность кода.
+- Auth страница в dark mode выглядит «пустой» в JPEG-скриншотах из-за очень низкого контраста между `#0f0d0b` bg и `#1a1714` panel; в реальном браузере разница видна (проверено через computed styles).
+- react-chessboard board squares — классическая шахматная палитра (#F0D9B5/#B58863), не зависит от CSS-переменных.
+
+### Следующие этапы
+- **QA-проход** — полный функциональный тест с реальным matched после играной партии.
+- **finish_reason** — колонка в `matches` для корректного label ничьих.
+- **Mobile polish** — дополнительная проверка /review и /play на 375px с реальной партией.
+
+## Этап 7.1 — Mobile layout fix after redesign. Статус: завершён (2026-05-22)
+
+### Сделано
+- `/play` до `md` складывается в вертикальный стек: board area идёт первой,
+  status/result/move list/controls — под доской, rating/setup sidebar — ниже.
+  Desktop-сетка `260px / board / 280px` сохранена.
+- `/review` получил настоящий mobile stack вместо неработавшего CSS fallback:
+  replay остаётся первым, Ask AI поднимается перед AI Coach, mobile Key moments
+  стоит перед Training, а desktop остаётся трёхколоночным workspace.
+- Длинный AI-текст и chat bubbles получили переносы, чтобы review-карточки не
+  распирали экран.
+- Mobile navbar в `SiteShell` теперь показывает бренд, Play и compact `...`
+  menu; остальные ссылки и auth status живут внутри раскрывающегося меню.
+  Тексты aria-label меню добавлены в RU/EN translations.
+- Быстро приглажены mobile-поверхности вокруг redesign: home stats card больше
+  не тянет hero в max-content width, auth screens становятся single-column,
+  settings stack вертикальный, leaderboard header стекается, profile stats
+  раскладываются в mobile grid.
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK, только стандартные LF -> CRLF warnings Git.
+- In-app browser на viewport 375px:
+  - page overflow проверен через `scrollWidth` для `/`, `/play`, созданного
+    `/review/[matchId]`, `/profile`, `/leaderboard`, `/settings`,
+    `/auth/sign-in`, `/auth/sign-up`, `/pro`;
+  - `/play`: клик по `e2` -> `e4` применил ход, затем Resign создал review;
+  - `/review`: визуально проверен порядок replay -> Ask AI -> AI Coach ->
+    Key moments -> Training без horizontal overflow;
+  - mobile compact menu открывается и не распирает viewport.
+- Desktop browser pass:
+  - `/play` снова вычисляется как 3-column workspace;
+  - `/review` снова вычисляется как 3-column workspace.
+
+### Что проверить вручную
+1. На реальном телефоне 375px сыграть несколько ходов на `/play` drag + click,
+   затем завершить матч и открыть review.
+2. На длинном AI-анализе review проверить переносы текста в AI Coach,
+   Key moments и Training.
+3. С активной Supabase-сессией открыть mobile menu и убедиться, что email и
+   Sign out помещаются в меню.
+4. Кратко пройти desktop `/play` и `/review` после refresh с вашим обычным
+   матчем, чтобы подтвердить визуальный паритет Stage 7.0B.

@@ -123,7 +123,7 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
   if (!hasBrowserSupabaseConfig()) {
     return (
       <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-        <p className="text-sm font-medium text-arena-gold">{t.auth.account}</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.auth.account}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">
           {isSignIn ? t.auth.signInTitle : t.auth.signUpTitle}
         </h1>
@@ -143,7 +143,7 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
 
   return (
     <section className="rounded-lg border border-arena-border bg-arena-panel p-5">
-      <p className="text-sm font-medium text-arena-gold">{t.auth.account}</p>
+      <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.auth.account}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">
         {isSignIn ? t.auth.signInTitle : t.auth.signUpTitle}
       </h1>
