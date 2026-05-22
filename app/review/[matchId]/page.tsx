@@ -22,16 +22,12 @@ import {
 } from "@/lib/supabase/matches";
 import {
   loadAccountReview,
+  loadSavedAiAnalysis,
+  saveAiAnalysis,
   type AccountReview,
+  type AiAnalysis,
 } from "@/lib/supabase/reviews";
 import type { CoachApiResponse } from "@/app/api/coach/route";
-
-type AiCoachResult = {
-  mainMistake: string;
-  bestAlternative: string;
-  whyImportant: string;
-  trainNext: string;
-};
 
 function getMatchId(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -98,9 +94,11 @@ export default function ReviewPage() {
   const [localMatch, setLocalMatch] = useState<LocalMatch | null>(null);
   const [accountMatch, setAccountMatch] = useState<AccountMatch | null>(null);
   const [accountReview, setAccountReview] = useState<AccountReview | null>(null);
-  const [aiCoach, setAiCoach] = useState<AiCoachResult | null>(null);
+  const [aiCoach, setAiCoach] = useState<AiAnalysis | null>(null);
   const [aiCoachLoading, setAiCoachLoading] = useState(false);
   const [aiCoachError, setAiCoachError] = useState<"not_configured" | "unavailable" | null>(null);
+  const [aiCoachSaved, setAiCoachSaved] = useState(false);
+  const [aiCoachSaveError, setAiCoachSaveError] = useState<"migrationNeeded" | "requestFailed" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -123,15 +121,20 @@ export default function ReviewPage() {
         return;
       }
 
-      const [savedMatch, savedReview] = await Promise.all([
+      const [savedMatch, savedReview, savedAi] = await Promise.all([
         loadAccountMatch(supabase, matchId),
         loadAccountReview(supabase, matchId),
+        loadSavedAiAnalysis(supabase, matchId),
       ]);
       if (!active) return;
 
       setAccountMatch(savedMatch.match);
       setAccountReview(savedReview.review);
-      setLoadError(savedMatch.error !== null || savedReview.error !== null);
+      setLoadError(savedMatch.error !== null);
+      if (savedAi) {
+        setAiCoach(savedAi);
+        setAiCoachSaved(true);
+      }
       setLoaded(true);
     }
 
@@ -149,7 +152,7 @@ export default function ReviewPage() {
   ) {
     setAiCoachLoading(true);
     setAiCoachError(null);
-    setAiCoach(null);
+    setAiCoachSaveError(null);
 
     const finish: MatchFinish = currentLocalMatch
       ? currentLocalMatch.finish
@@ -173,12 +176,26 @@ export default function ReviewPage() {
       const data = (await res.json()) as CoachApiResponse;
 
       if (data.available) {
-        setAiCoach({
+        const result: AiAnalysis = {
           mainMistake: data.mainMistake,
           bestAlternative: data.bestAlternative,
           whyImportant: data.whyImportant,
           trainNext: data.trainNext,
-        });
+        };
+        setAiCoach(result);
+        setAiCoachSaved(false);
+
+        if (currentAccountMatch && matchId) {
+          const supabase = createClient();
+          if (supabase) {
+            const { error } = await saveAiAnalysis(supabase, matchId, result);
+            if (error) {
+              setAiCoachSaveError(error);
+            } else {
+              setAiCoachSaved(true);
+            }
+          }
+        }
       } else {
         setAiCoachError(
           data.reason === "not_configured" ? "not_configured" : "unavailable",
@@ -373,13 +390,12 @@ export default function ReviewPage() {
               {t.review.aiCoach.title}
             </h2>
           </div>
-          {!aiCoach && !aiCoachLoading && (
+          {!aiCoachLoading && (
             <button
               onClick={() => void handleGenerateAiCoach(match, localMatch, accountMatch)}
-              className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90 disabled:opacity-50"
-              disabled={aiCoachLoading}
+              className="rounded-md bg-arena-blue px-4 py-2 font-medium text-white hover:opacity-90"
             >
-              {t.review.aiCoach.generateBtn}
+              {aiCoach ? t.review.aiCoach.regenerateBtn : t.review.aiCoach.generateBtn}
             </button>
           )}
         </div>
@@ -420,9 +436,26 @@ export default function ReviewPage() {
               <p className="text-xs text-arena-muted">{t.review.aiCoach.trainNext}</p>
               <p className="mt-1 text-sm">{aiCoach.trainNext}</p>
             </div>
-            <p className="sm:col-span-2 text-xs text-arena-muted">
-              {t.review.aiCoach.note}
-            </p>
+            <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-arena-muted">
+                {t.review.aiCoach.note}
+              </p>
+              {isAccount && aiCoachSaved && (
+                <span className="rounded-full border border-arena-win/40 bg-arena-win/10 px-3 py-0.5 text-xs text-arena-win">
+                  {t.review.aiCoach.saved}
+                </span>
+              )}
+              {!isAccount && (
+                <p className="text-xs text-arena-muted">
+                  {t.review.aiCoach.guestNote}
+                </p>
+              )}
+            </div>
+            {aiCoachSaveError && (
+              <p className="sm:col-span-2 text-xs text-arena-muted">
+                {t.review.aiCoach.saveError}
+              </p>
+            )}
           </div>
         )}
 

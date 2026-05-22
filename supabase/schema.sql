@@ -99,6 +99,7 @@ create table if not exists public.match_reviews (
   key_moment      text,
   coach_summary   text,
   training_advice text,
+  ai_analysis     jsonb,
   created_at      timestamptz not null default now(),
 
   constraint reviews_white_accuracy_range
@@ -202,6 +203,31 @@ create policy reviews_select_public_or_participant
 -- Insert: only a participant of the parent match may attach a review.
 create policy reviews_insert_participant
   on public.match_reviews for insert
+  with check (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_reviews.match_id
+        and (
+          auth.uid() = m.white_player_id
+          or auth.uid() = m.black_player_id
+        )
+    )
+  );
+
+-- Update: only a participant may update the review (e.g. save ai_analysis).
+-- Added in Stage 4.3; also in supabase/migrations/0002_add_ai_analysis.sql.
+create policy reviews_update_participant
+  on public.match_reviews for update
+  using (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_reviews.match_id
+        and (
+          auth.uid() = m.white_player_id
+          or auth.uid() = m.black_player_id
+        )
+    )
+  )
   with check (
     exists (
       select 1 from public.matches m

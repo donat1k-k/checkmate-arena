@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DemoCoachReview } from "@/lib/demo/coach";
 
+export type AiAnalysis = {
+  mainMistake: string;
+  bestAlternative: string;
+  whyImportant: string;
+  trainNext: string;
+};
+
 export type AccountReview = {
   id: string;
   matchId: string;
@@ -19,9 +26,17 @@ type ReviewRow = {
   created_at: string;
 };
 
+type AiAnalysisRow = {
+  ai_analysis: unknown | null;
+};
+
 type AccountReviewResult = {
   error: "requestFailed" | null;
   review: AccountReview | null;
+};
+
+type SaveAiAnalysisResult = {
+  error: "requestFailed" | "migrationNeeded" | null;
 };
 
 function toAccountReview(review: ReviewRow): AccountReview {
@@ -32,6 +47,25 @@ function toAccountReview(review: ReviewRow): AccountReview {
     summary: review.coach_summary,
     trainingAdvice: review.training_advice,
     createdAt: review.created_at,
+  };
+}
+
+function toAiAnalysis(value: unknown): AiAnalysis | null {
+  if (!value || typeof value !== "object") return null;
+  const a = value as Record<string, unknown>;
+  if (
+    typeof a.mainMistake !== "string" ||
+    typeof a.bestAlternative !== "string" ||
+    typeof a.whyImportant !== "string" ||
+    typeof a.trainNext !== "string"
+  ) {
+    return null;
+  }
+  return {
+    mainMistake: a.mainMistake,
+    bestAlternative: a.bestAlternative,
+    whyImportant: a.whyImportant,
+    trainNext: a.trainNext,
   };
 }
 
@@ -69,4 +103,34 @@ export async function loadAccountReview(
   return error || !data
     ? { error: error ? "requestFailed" : null, review: null }
     : { error: null, review: toAccountReview(data as ReviewRow) };
+}
+
+export async function loadSavedAiAnalysis(
+  supabase: SupabaseClient,
+  matchId: string,
+): Promise<AiAnalysis | null> {
+  const { data, error } = await supabase
+    .from("match_reviews")
+    .select("ai_analysis")
+    .eq("match_id", matchId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return toAiAnalysis((data as AiAnalysisRow).ai_analysis);
+}
+
+export async function saveAiAnalysis(
+  supabase: SupabaseClient,
+  matchId: string,
+  analysis: AiAnalysis,
+): Promise<SaveAiAnalysisResult> {
+  const { error } = await supabase
+    .from("match_reviews")
+    .update({ ai_analysis: analysis })
+    .eq("match_id", matchId);
+
+  if (!error) return { error: null };
+  // 42703 = undefined_column: migration not applied yet
+  if (error.code === "42703") return { error: "migrationNeeded" };
+  return { error: "requestFailed" };
 }

@@ -344,6 +344,7 @@ export const translations = {
         eyebrow: "AI Coach",
         title: "Deep game analysis",
         generateBtn: "Generate AI Coach",
+        regenerateBtn: "Regenerate",
         generating: "Generating analysis...",
         notConfigured:
           "AI Coach is not configured in this environment. Add AI_COACH_API_BASE_URL, AI_COACH_API_KEY and AI_COACH_MODEL to enable it.",
@@ -354,6 +355,11 @@ export const translations = {
         whyImportant: "Why it matters",
         trainNext: "Train next",
         note: "AI analysis · No engine evaluation",
+        saved: "Analysis saved to account",
+        saveError:
+          "Generated but not saved. Apply supabase/migrations/0002_add_ai_analysis.sql in the Supabase SQL editor first.",
+        guestNote:
+          "Session only — analysis will not persist after reload for guests.",
       },
       coach: {
         resultSignalTitle: "Result signal",
@@ -739,6 +745,7 @@ export const translations = {
         eyebrow: "AI Coach",
         title: "Глубокий анализ",
         generateBtn: "AI-разбор",
+        regenerateBtn: "Сгенерировать заново",
         generating: "Генерируем анализ...",
         notConfigured:
           "AI Coach не настроен в этой среде. Добавьте AI_COACH_API_BASE_URL, AI_COACH_API_KEY и AI_COACH_MODEL, чтобы включить его.",
@@ -749,6 +756,11 @@ export const translations = {
         whyImportant: "Почему важно",
         trainNext: "Что тренировать",
         note: "AI-анализ · Без engine evaluation",
+        saved: "Анализ сохранён в аккаунте",
+        saveError:
+          "Создан, но не сохранён. Сначала примените supabase/migrations/0002_add_ai_analysis.sql в Supabase SQL editor.",
+        guestNote:
+          "Только сессия — анализ гостя пропадёт после перезагрузки.",
       },
       coach: {
         resultSignalTitle: "Сигнал результата",

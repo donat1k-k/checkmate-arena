@@ -206,3 +206,44 @@ Stage 3.2 не переносит local matches/reviews в Supabase. Для сл
   Обновление рейтинга в leaderboard видно после перезагрузки страницы.
 - `schema.sql` не менялся; RLS `profiles` (`select using (true)`) уже позволял
   публичное чтение для leaderboard.
+
+## 2026-05-22 — Этап 4.3: AI Coach persistence
+
+### Хранение AI-анализа
+- AI-анализ хранится как JSONB в `match_reviews.ai_analysis` (nullable).
+  Одна строка на матч (1:1 через существующий unique-индекс `match_id`).
+  JSONB выбран вместо отдельных колонок, потому что структура анализа может
+  расширяться (поля, версии prompt), а schema-миграции для каждого поля
+  избыточны. Один jsonb-столбец легко добавить и просто читать.
+
+### UPDATE RLS для match_reviews
+- В Stage 3.1 у `match_reviews` была только INSERT-политика. UPDATE-политика
+  добавлена в Stage 4.3 через миграцию `0002_add_ai_analysis.sql`.
+  Без неё Supabase RLS блокировал бы `supabase.update(...)` на любом review.
+  Политика симметрична INSERT: только участник родительского матча.
+
+### Применение миграции — вручную
+- `supabase/migrations/0002_add_ai_analysis.sql` применяется вручную через
+  Supabase SQL editor. Автоматического применения нет.
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` идемпотентен.
+  `CREATE POLICY` идемпотентен только при первом запуске — повторный вызов
+  даст ошибку "policy already exists" (безопасно игнорировать при re-run).
+
+### Graceful fallback если миграция не применена
+- `loadAccountReview` не выбирает `ai_analysis` — не ломается без колонки.
+- `loadSavedAiAnalysis` выбирает только `ai_analysis`; при ошибке (42703 =
+  undefined column) возвращает null — страница показывает кнопку без краша.
+- `saveAiAnalysis` проверяет `error.code === "42703"` и возвращает
+  `"migrationNeeded"` вместо generic error — UI показывает точный hint.
+
+### Guest analysis — session-only
+- Гостевой AI-анализ не пишется в Supabase. Без аккаунта нет `match_id` в
+  базе, поэтому `saveAiAnalysis` не вызывается. Гость видит результат в
+  текущей сессии; после reload кнопка возвращается. Об этом сообщает `guestNote`.
+
+### Схема AiAnalysis
+```
+{ mainMistake, bestAlternative, whyImportant, trainNext: string }
+```
+Валидатор `toAiAnalysis()` проверяет все четыре string-поля перед
+использованием — защита от частичной записи или изменения формата.

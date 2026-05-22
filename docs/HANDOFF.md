@@ -703,3 +703,91 @@ QA + точечный hardening без нового этапа.
 **4.0B — AI Coach persistence**: добавить колонку `ai_analysis jsonb` в
 `match_reviews`, сохранять AI result при генерации, показывать сохранённый
 анализ при повторном открытии `/review/[matchId]` без повторного запроса.
+
+## Этап 4.3 — AI Coach persistence + Review upgrade. Статус: завершён (2026-05-22)
+
+### Сделано
+
+**1. `supabase/migrations/0002_add_ai_analysis.sql`** — миграция для ручного применения.
+- `ALTER TABLE match_reviews ADD COLUMN IF NOT EXISTS ai_analysis jsonb` — безопасно,
+  nullable, без backfill. Существующие строки получают NULL.
+- `CREATE POLICY reviews_update_participant` — UPDATE-политика для `match_reviews`.
+  Без неё Supabase RLS блокировал бы любой `.update()` на review-строках.
+
+**2. `supabase/schema.sql`** — target state обновлён:
+- Добавлена колонка `ai_analysis jsonb` в определение `match_reviews`.
+- Добавлена `reviews_update_participant` политика в секцию RLS.
+
+**3. `lib/supabase/reviews.ts`** — новые типы и хелперы:
+- `AiAnalysis` — export type `{ mainMistake, bestAlternative, whyImportant, trainNext }`.
+- `toAiAnalysis(value)` — type guard, проверяет 4 string-поля.
+- `loadSavedAiAnalysis(supabase, matchId)` — SELECT `ai_analysis`, graceful null при ошибке.
+  Не сломает review если колонки нет (`loadAccountReview` не изменён).
+- `saveAiAnalysis(supabase, matchId, analysis)` — UPDATE SET `ai_analysis`.
+  Возвращает `"migrationNeeded"` при `error.code === "42703"` (колонка отсутствует).
+
+**4. `lib/i18n/translations.ts`** — новые строки в `review.aiCoach` (RU/EN):
+- `regenerateBtn` / `saved` / `saveError` / `guestNote`.
+
+**5. `app/review/[matchId]/page.tsx`** — persistence + UX:
+- `loadReview` effect: для account match параллельно загружает persisted AI из Supabase.
+  Если есть — устанавливает `aiCoach` и `aiCoachSaved = true` сразу на mount.
+- `handleGenerateAiCoach`: после успеха вызывает `saveAiAnalysis` для account match.
+  `aiCoachSaved = true` при успехе, `aiCoachSaveError` при ошибке.
+- Кнопка: всегда видна (кроме loading), текст меняется на "Regenerate" если уже есть анализ.
+- Saved badge (зелёный) при `isAccount && aiCoachSaved`.
+- `guestNote` (серый текст) для guest, если анализ сгенерирован.
+- `saveError` hint: точная инструкция применить миграцию.
+
+### Границы этапа
+- SQL не применялся к удалённой Supabase БД.
+- Streaming, multiplayer, realtime, chess engine — не менялись.
+- Auth flow, RLS profiles/matches — не менялись.
+
+### Команды и проверки
+- `npm run build` — OK.
+- `git diff --check` — OK.
+- Browser tool недоступен для localhost — см. ручной чеклист ниже.
+
+### SQL для ручного применения в Supabase SQL editor
+
+```sql
+alter table public.match_reviews
+  add column if not exists ai_analysis jsonb;
+
+create policy reviews_update_participant
+  on public.match_reviews for update
+  using (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_reviews.match_id
+        and (auth.uid() = m.white_player_id or auth.uid() = m.black_player_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_reviews.match_id
+        and (auth.uid() = m.white_player_id or auth.uid() = m.black_player_id)
+    )
+  );
+```
+
+### Что проверить вручную
+
+1. **Guest match, без AI env**: кнопка "AI-разбор" → "not configured", demo review цел.
+2. **Guest match, с AI env**: генерировать → 4 карточки → `guestNote` видна.
+3. **Guest match, F5**: 4 карточки пропали (ожидаемо), кнопка снова. Демо review цел.
+4. **Account match, без миграции**: review page не падает, кнопка присутствует,
+   `loadSavedAiAnalysis` возвращает null без краша.
+5. **Account match, без миграции, генерировать**: 4 карточки видны + `saveError` hint
+   с инструкцией применить миграцию. Saved badge нет.
+6. **Account match, после применения миграции, генерировать**: saved badge появился.
+7. **Account match, F5 после сохранения**: 4 карточки загружены из Supabase сразу,
+   кнопка показывает "Regenerate".
+8. **RU/EN переключение**: кнопки, saved badge и guestNote следуют языку.
+
+### Следующий этап
+
+- **4.4**: Streaming AI response (ReadableStream) для немедленного отображения.
+- **5.0**: `finish_reason` колонка в `matches` для корректного label ничьих.
