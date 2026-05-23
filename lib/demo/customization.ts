@@ -112,6 +112,8 @@ export type ProfileCustomization = {
   city: ProfileCity;
   visibility: ProfileVisibility;
   clanTag: string;
+  displayNickname: string;
+  bio: string;
 };
 
 const DEFAULT_CUSTOMIZATION: ProfileCustomization = {
@@ -119,6 +121,8 @@ const DEFAULT_CUSTOMIZATION: ProfileCustomization = {
   city: "other",
   visibility: "public",
   clanTag: "",
+  displayNickname: "",
+  bio: "",
 };
 
 function canUseStorage(): boolean {
@@ -149,6 +153,20 @@ function sanitizeClanTag(value: unknown): string {
     .toUpperCase();
 }
 
+function sanitizeBio(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 160);
+}
+
+function sanitizeDisplayNickname(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 24);
+}
+
+export function getDisplayNickname(profileNickname: string, customization: ProfileCustomization): string {
+  return customization.displayNickname.trim() || profileNickname;
+}
+
 export function loadProfileCustomization(): ProfileCustomization {
   if (!canUseStorage()) return DEFAULT_CUSTOMIZATION;
 
@@ -165,6 +183,8 @@ export function loadProfileCustomization(): ProfileCustomization {
         ? parsed.visibility
         : DEFAULT_CUSTOMIZATION.visibility,
       clanTag: sanitizeClanTag(parsed?.clanTag),
+      displayNickname: sanitizeDisplayNickname(parsed?.displayNickname),
+      bio: sanitizeBio(parsed?.bio),
     };
   } catch {
     return DEFAULT_CUSTOMIZATION;
@@ -185,6 +205,8 @@ export function saveProfileCustomization(
       ? customization.visibility
       : DEFAULT_CUSTOMIZATION.visibility,
     clanTag: sanitizeClanTag(customization.clanTag),
+    displayNickname: sanitizeDisplayNickname(customization.displayNickname),
+    bio: sanitizeBio(customization.bio),
   };
 
   if (canUseStorage()) {

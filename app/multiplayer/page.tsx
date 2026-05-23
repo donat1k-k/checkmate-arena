@@ -176,6 +176,20 @@ export default function MultiplayerPage() {
         </div>
       </div>
 
+      {/* Fair Play Guard notice */}
+      <div className="mb-4 rounded-lg border border-arena-border bg-arena-elevated p-4">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-arena-muted">{tm.fairPlayTitle}</p>
+        <ul className="mt-2 space-y-1">
+          {[tm.fairPlayLegalMoves, tm.fairPlayNoHints, tm.fairPlayReview].map((item) => (
+            <li key={item} className="flex items-center gap-2 text-xs text-arena-muted">
+              <span className="text-arena-win">✓</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[10px] font-semibold text-arena-blue">{tm.fairPlayActive}</p>
+      </div>
+
       {/* Proto note + back */}
       <p className="mb-4 text-xs text-arena-muted">{tm.protoNote}</p>
 

@@ -158,6 +158,14 @@ export function purchaseArenaStoreItem(itemId: string): {
   };
 }
 
+export function spendArenaCoins(amount: number): { success: boolean; balance: number } {
+  const state = readState();
+  if (state.balance < amount) return { success: false, balance: state.balance };
+  const next: ArenaEconomyState = { ...state, balance: state.balance - amount };
+  saveState(next);
+  return { success: true, balance: next.balance };
+}
+
 export function addArenaCoins(amount: number): number {
   const state = readState();
   const nextState = { ...state, balance: state.balance + Math.max(0, Math.round(amount)) };

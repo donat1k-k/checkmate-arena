@@ -673,3 +673,38 @@ fallback). Поле остаётся редактируемым — пользо
 - Account Supabase save для multiplayer (source_room_code idempotency в matches)
 - Matchmaking (случайный соперник)
 - Deployment на Vercel
+
+---
+
+## Stage 9.5 — Profile Edit + Fair Play Guard + Coach Advice (2026-05-23)
+
+### Profile bio + displayNickname как localStorage overlay
+
+Bio и displayNickname хранятся в `ProfileCustomization` (localStorage), а не в Supabase profiles.
+Причина: не менять схему БД без крайней необходимости (правило проекта).
+`getDisplayNickname(nickname, customization)` — helper для единого fallback: displayNickname trim() || system nickname.
+Для account users displayNickname пытается обновить `profiles.nickname` через `updateProfileNickname()` (best-effort, без блокировки UI).
+
+### Fair Play Guard — только визуальный prototype слой
+
+Fair Play Guard — честный UI-сигнал (legal-move validation через chess.js + match history reviewable), не production anti-cheat.
+Причина: production anti-cheat вне scope MVP; честное позиционирование лучше, чем обманчивые заявления.
+Никаких банов, никаких server-side проверок — только frontend prototype notices.
+
+### Reputation (commend/report) — localStorage only
+
+localStorage с per-roomCode идемпотентностью (commendedRooms[], reportedRooms[] массивы).
+Причина: никаких banов, никакой модерации в MVP; честное "reports saved locally" без обещаний.
+
+### Coach Advice — local chess.js heuristic, NO LLM
+
+Эвристика: check (+/#) > capture (verbose.captured) > center (e4/d4/e5/d5) > develop (N/B piece) > general.
+Возвращает top-3 кандидата + positionType hint.
+Причина: zero LLM cost, works offline, честно как "candidate moves" а не "engine analysis".
+100 AC cost или бесплатно в Pro Trial.
+`spendArenaCoins(amount)` добавлен в economy.ts для расхода монет.
+
+### Commend/Report в /room/[code] — после окончания партии
+
+Кнопки показываются только `!isSpectator && finished`. Инициализация из `hasCommendedRoom(code)` в init useEffect.
+Причина: spectator-у некого commend/report; повторное нажатие предотвращено через localStorage idempotency.

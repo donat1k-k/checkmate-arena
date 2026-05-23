@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
-import type { Color, Square } from "chess.js";
+import { Chess, type Color, type Square } from "chess.js";
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
 import ArenaAvatar from "@/components/profile/ArenaAvatar";
@@ -12,6 +12,7 @@ import { ChessGame, type GameStatus, type PromotionPiece } from "@/lib/chess/eng
 import {
   loadArenaCoinsBalance,
   rewardArenaCoinsForMatch,
+  spendArenaCoins,
 } from "@/lib/demo/economy";
 import {
   loadProfileCustomization,
@@ -52,6 +53,28 @@ import {
 } from "@/lib/supabase/profiles";
 
 const RIVAL_RATING = 1035;
+const COACH_ADVICE_COST = 100;
+const CENTER_SQUARES = new Set(["e4", "d4", "e5", "d5"]);
+
+type PositionType = "check" | "capture" | "center" | "develop" | "general";
+type CoachCandidate = { san: string; type: PositionType };
+type CoachAdviceResult = { hint: PositionType; candidates: CoachCandidate[] };
+
+function buildCoachAdvice(fen: string): CoachAdviceResult {
+  const chess = new Chess(fen);
+  const moves = chess.moves({ verbose: true });
+  const ORDER: PositionType[] = ["check", "capture", "center", "develop", "general"];
+  const classified: CoachCandidate[] = moves.map((m) => {
+    if (m.san.includes("+") || m.san.includes("#")) return { san: m.san, type: "check" };
+    if (m.captured !== undefined) return { san: m.san, type: "capture" };
+    if (CENTER_SQUARES.has(m.to)) return { san: m.san, type: "center" };
+    if (m.piece === "n" || m.piece === "b") return { san: m.san, type: "develop" };
+    return { san: m.san, type: "general" };
+  });
+  classified.sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type));
+  const top = classified.slice(0, 3);
+  return { hint: top[0]?.type ?? "general", candidates: top };
+}
 const AI_RATINGS: Record<AiDifficulty, number> = {
   beginner: 760,
   casual: 1040,
@@ -128,6 +151,7 @@ export default function PlayPage() {
   const [customization, setCustomization] = useState<ProfileCustomization>(
     loadProfileCustomization(),
   );
+  const [coachAdvice, setCoachAdvice] = useState<CoachAdviceResult | null>(null);
 
   const game = gameRef.current;
   const status = game.status();
@@ -490,6 +514,17 @@ export default function PlayPage() {
     forceUpdate();
   }
 
+  function handleCoachAdvice() {
+    if (trialGamesLeft > 0) {
+      setCoachAdvice(buildCoachAdvice(game.fen));
+      return;
+    }
+    const result = spendArenaCoins(COACH_ADVICE_COST);
+    if (!result.success) return;
+    setArenaCoins(result.balance);
+    setCoachAdvice(buildCoachAdvice(game.fen));
+  }
+
   const squareStyles: Record<string, React.CSSProperties> = {};
   const checkedKing = game.checkedKingSquare();
   if (checkedKing) squareStyles[checkedKing] = CHECK_STYLE;
@@ -850,6 +885,52 @@ export default function PlayPage() {
                 : t.play.finishedHint}
             </p>
           </div>
+
+          {/* Coach Advice */}
+          {!gameOver && (mode === "local" || mode === "ai") && (
+            <div className="sidebar-sec">
+              <div className="sidebar-sec-title">{t.play.coachAdviceTitle}</div>
+              {coachAdvice ? (
+                <div>
+                  <p className="mb-2 text-xs text-arena-muted">
+                    {t.play.coachAdvicePositionTypes[coachAdvice.hint]}
+                  </p>
+                  <div className="space-y-1">
+                    {coachAdvice.candidates.map((c, i) => (
+                      <div key={`${c.san}-${i}`} className="flex items-center gap-2 rounded bg-arena-elevated px-2.5 py-1.5">
+                        <span className="font-mono text-sm font-bold text-arena-blue">{c.san}</span>
+                        <span className="rounded bg-arena-panel px-1.5 py-0.5 text-[10px] text-arena-muted capitalize">{c.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCoachAdvice(null)}
+                    className="mt-2 text-[10px] text-arena-muted hover:text-arena-text"
+                  >
+                    ✕ {t.play.coachAdviceBody}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-2 text-xs text-arena-muted">
+                    {trialGamesLeft > 0 ? t.play.coachAdviceTrialNote : t.play.coachAdviceCost(COACH_ADVICE_COST)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCoachAdvice}
+                    disabled={trialGamesLeft === 0 && arenaCoins < COACH_ADVICE_COST}
+                    className="w-full rounded bg-arena-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {t.play.coachAdviceAsk}
+                  </button>
+                  {trialGamesLeft === 0 && arenaCoins < COACH_ADVICE_COST && (
+                    <p className="mt-1 text-[10px] text-arena-loss">{t.play.coachAdviceInsufficient}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Result card */}
           {completedMatch && (

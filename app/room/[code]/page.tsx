@@ -23,6 +23,12 @@ import {
   loadGuestProfile,
   recordCompletedMatch,
 } from "@/lib/demo/progress";
+import {
+  commendPlayer,
+  reportPlayer,
+  hasCommendedRoom,
+  hasReportedRoom,
+} from "@/lib/demo/reputation";
 import type { GameOutcome } from "@/lib/chess/engine";
 import { translations } from "@/lib/i18n/translations";
 import {
@@ -108,6 +114,9 @@ export default function RoomPage() {
   const [savedMatchId, setSavedMatchId] = useState<string | null>(null);
   const matchSavedRef = useRef(false);
 
+  const [commended, setCommended] = useState(false);
+  const [reported, setReported] = useState(false);
+
   const guestIdRef = useRef("");
   const playerNameRef = useRef("Guest");
   const unsubRef = useRef<(() => void) | null>(null);
@@ -118,7 +127,11 @@ export default function RoomPage() {
     const profile = loadGuestProfile() ?? createGuestProfile("Guest");
     guestIdRef.current = profile.id;
     playerNameRef.current = profile.nickname;
-  }, []);
+    if (code) {
+      setCommended(hasCommendedRoom(code));
+      setReported(hasReportedRoom(code));
+    }
+  }, [code]);
 
   // ── Load room on mount ────────────────────────────────────────────────────
   useEffect(() => {
@@ -690,6 +703,38 @@ export default function RoomPage() {
                   >
                     {t.play.modeLocal}
                   </Link>
+                  {!isSpectator && (
+                    <div className="mt-1 border-t border-arena-border pt-2">
+                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-arena-muted">
+                        {tm.commendTitle}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          disabled={commended}
+                          onClick={() => {
+                            const r = commendPlayer(code);
+                            if (r.done) setCommended(true);
+                          }}
+                          className="rounded border border-arena-win/30 bg-arena-win/10 px-2.5 py-1 text-xs font-semibold text-arena-win hover:bg-arena-win/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {commended ? tm.commendDone : tm.commendBtn}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reported}
+                          onClick={() => {
+                            const r = reportPlayer(code);
+                            if (r.done) setReported(true);
+                          }}
+                          className="rounded border border-arena-border px-2.5 py-1 text-xs text-arena-muted hover:border-arena-loss disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {reported ? tm.reportDone : tm.reportBtn}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-[10px] text-arena-muted">{tm.reportNote}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : room.status === "waiting" ? (

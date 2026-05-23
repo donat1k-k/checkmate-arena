@@ -5,16 +5,28 @@ import { useEffect, useState } from "react";
 import ArenaAvatar from "@/components/profile/ArenaAvatar";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
 import {
+  AVATAR_PRESETS,
+  CLAN_TAG_PRESETS,
+  getDisplayNickname,
   loadProfileCustomization,
+  saveProfileCustomization,
   type ProfileCustomization,
 } from "@/lib/demo/customization";
 import {
+  equipCosmetic,
   loadEquippedCosmetics,
   type EquippedCosmetics,
 } from "@/lib/demo/cosmetics";
-import { loadOwnedStoreItems } from "@/lib/demo/economy";
+import { loadOwnedStoreItems, ARENA_STORE_ITEMS } from "@/lib/demo/economy";
 import { loadArenaCoinsBalance } from "@/lib/demo/economy";
+import { loadFreeAiReviewsLeft } from "@/lib/demo/retention";
 import { loadProTrialGamesLeft } from "@/lib/demo/retention";
+import {
+  loadReputation,
+  commendPlayer as commendPlayerAction,
+  reportPlayer as reportPlayerAction,
+  type ReputationSummary,
+} from "@/lib/demo/reputation";
 import { getAccuracy, loadBlitzStats, type BlitzStats } from "@/lib/demo/blitz";
 import {
   getGamesPlayed,
@@ -23,6 +35,7 @@ import {
   getRatingLevelProgress,
   getWinRate,
   loadGuestProfile,
+  saveGuestProfile,
   loadMatches,
   type GuestProfile,
   type LocalMatch,
@@ -38,6 +51,7 @@ import {
   getAccountGamesPlayed,
   getAccountWinRate,
   loadAccountProfile,
+  updateProfileNickname,
   type AccountProfile,
 } from "@/lib/supabase/profiles";
 
@@ -256,6 +270,19 @@ export default function ProfilePage() {
   const [blitzStats, setBlitzStats] = useState<BlitzStats | null>(null);
   const [equippedCosmetics, setEquippedCosmetics] = useState<EquippedCosmetics>({ frame: null, board: null, coach: null, title: null });
   const [ownedItemIds, setOwnedItemIds] = useState<string[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaved, setEditSaved] = useState(false);
+  const [reputation, setReputation] = useState<ReputationSummary>({ commendations: 0, reports: 0 });
+  const [freeAiReviewsLeft, setFreeAiReviewsLeft] = useState(3);
+  const [accountProfileRef, setAccountProfileRef] = useState<AccountProfile | null>(null);
+  const [editValues, setEditValues] = useState({
+    displayNickname: "",
+    bio: "",
+    avatarId: customization.avatarId,
+    clanTag: customization.clanTag,
+    titleId: null as string | null,
+    frameId: null as string | null,
+  });
 
   useEffect(() => {
     let active = true;
@@ -265,6 +292,8 @@ export default function ProfilePage() {
     setBlitzStats(loadBlitzStats());
     setEquippedCosmetics(loadEquippedCosmetics());
     setOwnedItemIds(loadOwnedStoreItems());
+    setReputation(loadReputation());
+    setFreeAiReviewsLeft(loadFreeAiReviewsLeft());
 
     async function loadProfilePage() {
       const supabase = createClient();
@@ -291,6 +320,7 @@ export default function ProfilePage() {
           if (!active) return;
 
           setProfile(accountProfileView(accountProfile.profile));
+          setAccountProfileRef(accountProfile.profile);
           setMatches(accountMatches.matches.map(accountMatchView));
           setHistoryError(accountMatches.error !== null);
           setLoaded(true);
@@ -354,6 +384,61 @@ export default function ProfilePage() {
   }
 
   const isAccount = profile.source === "account";
+
+  function openEdit() {
+    setEditValues({
+      displayNickname: customization.displayNickname,
+      bio: customization.bio,
+      avatarId: customization.avatarId,
+      clanTag: customization.clanTag,
+      titleId: equippedCosmetics.title,
+      frameId: equippedCosmetics.frame,
+    });
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit(updates: {
+    displayNickname: string;
+    bio: string;
+    avatarId: string;
+    clanTag: string;
+    titleId: string | null;
+    frameId: string | null;
+  }) {
+    const next = saveProfileCustomization({
+      ...customization,
+      displayNickname: updates.displayNickname,
+      bio: updates.bio,
+      avatarId: updates.avatarId,
+      clanTag: updates.clanTag,
+    });
+    equipCosmetic("title", updates.titleId);
+    equipCosmetic("frame", updates.frameId);
+    const newEquipped = loadEquippedCosmetics();
+    setCustomization(next);
+    setEquippedCosmetics(newEquipped);
+
+    if (isAccount && accountProfileRef && updates.displayNickname.trim()) {
+      const supabase = createClient();
+      if (supabase) {
+        await updateProfileNickname(supabase, accountProfileRef.id, updates.displayNickname);
+      }
+    }
+    if (!isAccount) {
+      const guestNickname = updates.displayNickname.trim();
+      if (guestNickname) {
+        const guestProfile = loadGuestProfile();
+        if (guestProfile) {
+          saveGuestProfile({ ...guestProfile, nickname: guestNickname });
+          setProfile((p) => p ? { ...p, nickname: guestNickname } : p);
+        }
+      }
+    }
+
+    setEditOpen(false);
+    setEditSaved(true);
+    setTimeout(() => setEditSaved(false), 3000);
+  }
   const statItems = [
     { label: t.profile.stats.rating, value: profile.rating },
     { label: t.profile.stats.level, value: getRatingLevel(profile.rating) },
@@ -406,10 +491,13 @@ export default function ProfilePage() {
           <div className="flex flex-wrap items-center gap-4 mb-5">
             <ArenaAvatar avatarId={customization.avatarId} className="h-[72px] w-[72px] text-2xl" />
             <div>
-              <h1 className="text-2xl font-extrabold">{profile.nickname}</h1>
+              <h1 className="text-2xl font-extrabold">{getDisplayNickname(profile.nickname, customization)}</h1>
               <div className="font-mono text-xs text-arena-muted mt-0.5">
                 @{profile.nickname.toLowerCase().replace(/\s/g, "_")}
               </div>
+              {customization.bio && (
+                <p className="mt-1 max-w-xs text-sm text-arena-muted">{customization.bio}</p>
+              )}
               <div className="flex flex-wrap gap-1.5 mt-2">
                 <span
                   className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -441,7 +529,20 @@ export default function ProfilePage() {
                 <span>{t.profile.visibility}: {t.settings.visibilities[customization.visibility]}</span>
               </div>
             </div>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {editSaved && (
+                <span className="flex items-center rounded-md border border-arena-win/30 bg-arena-win/10 px-3 py-2 text-xs font-semibold text-arena-win">
+                  {t.profile.editSaved}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={openEdit}
+                className="rounded-md border border-arena-border px-3 py-2 text-sm font-semibold hover:border-arena-blue"
+                title={t.profile.editBtn}
+              >
+                ✏
+              </button>
               <Link
                 href="/play"
                 className="rounded-md bg-arena-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
@@ -485,6 +586,150 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* ── Edit panel ── */}
+      {editOpen && (
+        <div className="border-b border-arena-border bg-arena-elevated px-4 py-5">
+          <div className="mx-auto max-w-[1280px]">
+            <h2 className="mb-4 text-lg font-semibold">{t.profile.editPanelTitle}</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-arena-muted">{t.profile.editNicknameLabel}</label>
+                <input
+                  type="text"
+                  maxLength={24}
+                  className="rounded-md border border-arena-border bg-arena-panel px-3 py-2 text-sm focus:border-arena-blue focus:outline-none"
+                  placeholder={t.profile.editNicknamePlaceholder}
+                  value={editValues.displayNickname}
+                  onChange={(e) => setEditValues((v) => ({ ...v, displayNickname: e.target.value }))}
+                />
+                <p className="text-[10px] text-arena-muted">{isAccount ? t.profile.editNicknameAccountNote : t.profile.editNicknameNote}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-arena-muted">{t.profile.editBioLabel}</label>
+                <textarea
+                  maxLength={160}
+                  rows={3}
+                  className="resize-none rounded-md border border-arena-border bg-arena-panel px-3 py-2 text-sm focus:border-arena-blue focus:outline-none"
+                  placeholder={t.profile.editBioPlaceholder}
+                  value={editValues.bio}
+                  onChange={(e) => setEditValues((v) => ({ ...v, bio: e.target.value }))}
+                />
+                <p className="text-[10px] text-arena-muted">{editValues.bio.length}/160</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-arena-muted">{t.profile.editClanLabel}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CLAN_TAG_PRESETS.map((tag) => (
+                    <button
+                      key={tag || "none"}
+                      type="button"
+                      onClick={() => setEditValues((v) => ({ ...v, clanTag: tag }))}
+                      className={`rounded border px-2.5 py-1 text-xs font-semibold ${
+                        editValues.clanTag === tag
+                          ? "border-arena-blue bg-arena-blue text-white"
+                          : "border-arena-border bg-arena-panel hover:border-arena-blue"
+                      }`}
+                    >
+                      {tag || t.profile.clanOpen}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-3">
+                <label className="text-xs font-semibold uppercase tracking-wide text-arena-muted">{t.profile.editAvatarLabel}</label>
+                <div className="flex flex-wrap gap-2">
+                  {AVATAR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setEditValues((v) => ({ ...v, avatarId: preset.id }))}
+                      className={`relative h-10 w-10 overflow-hidden rounded-full border-2 transition-all ${
+                        editValues.avatarId === preset.id ? "scale-110 border-arena-blue" : "border-transparent hover:border-arena-border"
+                      }`}
+                    >
+                      <span
+                        className="flex h-full w-full items-center justify-center text-xs font-bold"
+                        style={{ background: preset.background, color: preset.foreground }}
+                      >
+                        {preset.mark}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {ownedItemIds.filter((id) => ARENA_STORE_ITEMS.find((i) => i.id === id && i.category === "title")).length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-arena-muted">{t.profile.editTitleLabel}</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditValues((v) => ({ ...v, titleId: null }))}
+                      className={`rounded border px-2.5 py-1 text-xs font-semibold ${!editValues.titleId ? "border-arena-blue bg-arena-blue text-white" : "border-arena-border bg-arena-panel hover:border-arena-blue"}`}
+                    >
+                      —
+                    </button>
+                    {ownedItemIds
+                      .filter((id) => ARENA_STORE_ITEMS.find((i) => i.id === id && i.category === "title"))
+                      .map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setEditValues((v) => ({ ...v, titleId: id }))}
+                          className={`rounded border px-2.5 py-1 text-xs font-semibold ${editValues.titleId === id ? "border-arena-blue bg-arena-blue text-white" : "border-arena-border bg-arena-panel hover:border-arena-blue"}`}
+                        >
+                          {t.economy.store.items[id as keyof typeof t.economy.store.items]?.name ?? id}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+              {ownedItemIds.filter((id) => ARENA_STORE_ITEMS.find((i) => i.id === id && i.category === "frame")).length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-arena-muted">{t.profile.editFrameLabel}</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditValues((v) => ({ ...v, frameId: null }))}
+                      className={`rounded border px-2.5 py-1 text-xs font-semibold ${!editValues.frameId ? "border-arena-blue bg-arena-blue text-white" : "border-arena-border bg-arena-panel hover:border-arena-blue"}`}
+                    >
+                      —
+                    </button>
+                    {ownedItemIds
+                      .filter((id) => ARENA_STORE_ITEMS.find((i) => i.id === id && i.category === "frame"))
+                      .map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setEditValues((v) => ({ ...v, frameId: id }))}
+                          className={`rounded border px-2.5 py-1 text-xs font-semibold ${editValues.frameId === id ? "border-arena-blue bg-arena-blue text-white" : "border-arena-border bg-arena-panel hover:border-arena-blue"}`}
+                        >
+                          {t.economy.store.items[id as keyof typeof t.economy.store.items]?.name ?? id}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveEdit(editValues)}
+                className="rounded-md bg-arena-blue px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                {t.profile.editSave}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="rounded-md border border-arena-border px-4 py-2 text-sm font-semibold hover:border-arena-blue"
+              >
+                {t.profile.editCancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 py-6">
         <div className="mx-auto max-w-[1280px] flex flex-col gap-5">
@@ -746,6 +991,45 @@ export default function ProfilePage() {
             {t.profile.scoutingLocked}
           </button>
         </div>
+      </section>
+
+      {/* ── Fair Play + Reputation + AI Reviews ── */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.fairPlayTitle}</p>
+          <p className="mt-2 text-sm text-arena-muted">{t.profile.fairPlayBody}</p>
+          <ul className="mt-3 space-y-1.5">
+            {[t.profile.fairPlayLegalMoves, t.profile.fairPlayReviewable].map((item) => (
+              <li key={item} className="flex items-center gap-2 text-sm">
+                <span className="text-arena-win">✓</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 rounded-md border border-arena-border bg-arena-elevated px-3 py-2">
+            <p className="text-xs font-semibold">{t.profile.fairPlayStanding}</p>
+          </div>
+          <p className="mt-2 text-xs text-arena-muted">
+            {t.profile.fairPlayProLine}{" "}
+            <span className="opacity-60">— {t.profile.fairPlayProLineSub}</span>
+          </p>
+        </article>
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.reputationTitle}</p>
+          <p className="mt-2 font-mono text-3xl font-bold text-arena-blue">+{reputation.commendations}</p>
+          <p className="text-sm text-arena-muted">{t.profile.commendations}</p>
+          <p className="mt-3 text-sm text-arena-muted">{t.profile.reputationBody}</p>
+          <p className="mt-2 text-xs text-arena-muted">{t.profile.reputationNote}</p>
+        </article>
+        <article className="rounded-lg border border-arena-border bg-arena-panel p-5">
+          <p className="font-mono text-xs uppercase tracking-widest text-arena-muted">{t.profile.aiReviewsTitle}</p>
+          <p className="mt-2 font-mono text-3xl font-bold text-arena-blue">{freeAiReviewsLeft} / 3</p>
+          <p className="mt-1 text-sm text-arena-muted">{t.profile.aiReviewsLeft(freeAiReviewsLeft)}</p>
+          <p className="mt-3 text-xs text-arena-muted">{t.profile.aiReviewsProUnlock}</p>
+          <Link href="/pro" className="mt-2 block text-xs text-arena-blue hover:underline">
+            {t.profile.proCtaLink} →
+          </Link>
+        </article>
       </section>
 
       {blitzStats && blitzStats.attempts > 0 && (

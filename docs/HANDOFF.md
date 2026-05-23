@@ -1667,3 +1667,71 @@ alter publication supabase_realtime add table public.multiplayer_rooms;
 - Account Supabase save для multiplayer (source_room_code idempotency)
 - Matchmaking (случайный соперник)
 - Deployment на Vercel
+
+## Этап 9.5 — Profile Edit + Fair Play Guard + Coach Advice. Статус: завершён (2026-05-23)
+
+### Сделано
+
+#### Profile Edit
+- Кнопка-карандаш ✏ в header `/profile` → открывает inline edit panel
+- Edit panel: display nickname (overlay, 24 chars), bio (160 chars), avatar picker, clan tag, title + frame (если owned)
+- `displayNickname` + `bio` добавлены в `ProfileCustomization` (localStorage overlay)
+- `getDisplayNickname(nickname, customization)` helper: displayNickname или fallback на system nickname
+- Account users: попытка обновить Supabase `profiles.nickname` через `updateProfileNickname()`
+- Guest users: обновление `guestProfile.nickname` + localStorage overlay
+- editSaved toast на 3 сек после сохранения
+- `saveGuestProfile` добавлен в импорты `/profile`
+
+#### Fair Play Guard (prototype visual layer)
+- `/profile`: новая карточка с bullet-list (legal moves, reviewable) + "Good standing" badge
+- `/multiplayer`: новая секция с 3 bullet-list (validated, no hints, reviewable) + "Fair Play Guard active"
+- `/room/[code]`: commend/report buttons в finished-state (per roomCode idempotency, localStorage)
+- `/pro`: Fair Play Guard row уже в comparisonRows через translations
+
+#### Reputation (localStorage)
+- `lib/demo/reputation.ts`: commend/report per roomCode, `commendPlayer`, `reportPlayer`, `hasCommendedRoom`, `hasReportedRoom`
+- `/profile`: карточка Reputation (+N commendations)
+- `/room/[code]`: Commend + Report кнопки после окончания партии
+
+#### In-game Coach Advice
+- `/play`: local heuristic `buildCoachAdvice(fen)` через chess.js, NO LLM
+- Эвристика: check > capture > center (e4/d4/e5/d5) > develop > general, top-3 candidates
+- 100 AC cost, или бесплатно в Pro Trial
+- `spendArenaCoins()` добавлен в `lib/demo/economy.ts`
+- Секция Coach Advice в правом сайдбаре (только !gameOver && mode === "local"|"ai")
+
+#### AI Reviews counter
+- `/profile`: карточка "AI Reviews" — `freeAiReviewsLeft / 3` + ссылка на Pro
+
+#### i18n
+- Все новые строки добавлены в `lib/i18n/translations.ts` (EN + RU):
+  - `profile.editBtn/editPanelTitle/editNickname*/editBio*/editAvatar*/editClan*/editTitle*/editFrame*/editSave/editCancel/editSaved/editNicknameAccountNote`
+  - `profile.fairPlay*/reputation*/commendations/aiReviews*`
+  - `play.coachAdvice*`
+  - `multiplayer.fairPlay*/commend*/report*`
+  - `pro.comparisonRows` Fair Play Guard row
+
+### Файлы изменены
+
+- `lib/demo/customization.ts` — +displayNickname, +bio, getDisplayNickname()
+- `lib/demo/economy.ts` — +spendArenaCoins()
+- `lib/demo/reputation.ts` — NEW: commend/report localStorage layer
+- `lib/supabase/profiles.ts` — +updateProfileNickname()
+- `lib/i18n/translations.ts` — +~60 new string keys EN+RU
+- `app/profile/page.tsx` — edit panel, bio display, Fair Play card, Reputation card, AI Reviews card
+- `app/play/page.tsx` — Coach Advice heuristic + sidebar section
+- `app/room/[code]/page.tsx` — commend/report buttons post-game
+- `app/multiplayer/page.tsx` — Fair Play Guard notice card
+
+### Команды и проверки
+
+- `npm run build` — OK (16 routes, TypeScript OK).
+- `npx tsc --noEmit` — 0 errors.
+
+### Не реализовано (scope boundary)
+
+- Stripe/payments — намеренно исключено
+- Production anti-cheat / real bans — Fair Play Guard визуальный prototype
+- Timers/tournaments/matchmaking — без изменений
+- Supabase schema changes — не требовалось
+

@@ -196,6 +196,20 @@ export function nextAccountProfile(
   };
 }
 
+export async function updateProfileNickname(
+  supabase: SupabaseClient,
+  profileId: string,
+  nickname: string,
+): Promise<"requestFailed" | null> {
+  const sanitized = sanitizeNickname(nickname);
+  if (!sanitized) return "requestFailed";
+  const { error } = await supabase
+    .from("profiles")
+    .update({ nickname: sanitized })
+    .eq("id", profileId);
+  return error ? "requestFailed" : null;
+}
+
 export async function saveAccountProfileProgress(
   supabase: SupabaseClient,
   profile: AccountProfile,
