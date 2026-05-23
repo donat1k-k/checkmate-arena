@@ -911,6 +911,8 @@ export const translations = {
       aiCoachAfterGame: "Open review with AI Coach",
       openReview: "Open review",
       matchSaved: "Match saved to history",
+      invalidCode: "Enter a valid room code.",
+      playerNamePlaceholder: "Your name",
     },
   },
   ru: {
@@ -1797,6 +1799,8 @@ export const translations = {
       aiCoachAfterGame: "Открыть разбор с AI Coach",
       openReview: "Открыть разбор",
       matchSaved: "Матч сохранён в историю",
+      invalidCode: "Введите корректный код комнаты.",
+      playerNamePlaceholder: "Ваше имя",
     },
   },
 } as const;

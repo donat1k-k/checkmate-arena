@@ -632,3 +632,44 @@ Guest без auth: Home и Profile оба читают `loadGuestProfile()` из
 
 Draw offer показан как disabled Coming soon кнопка. Логика, timers,
 reconnect, RLS hardening, server-side validation — Stage 9.0C.
+
+## 2026-05-23 — Stage 9.1: Global QA + Nickname Autofill
+
+### Nickname autofill в /multiplayer
+
+`app/multiplayer/page.tsx` теперь account-aware: сначала загружает гостевой
+профиль из localStorage (как fallback), затем асинхронно проверяет Supabase
+session через `createClient().auth.getUser()`. Если пользователь authenticated
+— поле имени заполняется `account.nickname` из `profiles` (перекрывает guest
+fallback). Поле остаётся редактируемым — пользователь может сменить отображаемое
+имя перед созданием комнаты.
+
+Тот же паттерн (guest-first + async account override), что в `app/page.tsx`
+для рейтинга на главной.
+
+### Hardcoded EN strings
+
+В `app/multiplayer/page.tsx` исправлены две захардкоженные строки:
+- Ошибка валидации кода → `tm.invalidCode` (RU: "Введите корректный код комнаты.")
+- Placeholder поля имени → `tm.playerNamePlaceholder` (RU: "Ваше имя")
+
+### Global QA-аудит — verified
+
+- Rating Home = Profile: ✓ (account override в Home реализован в 9.0B)
+- Match history по всем типам игр: ✓ (localStorage/Supabase раздельные пути)
+- Review link для local/AI/account/multiplayer: ✓ (guest/account/room-{code})
+- Economy reset: ✓ coins + purchases + equipped + clan tag + trial + AI reviews + blitz stats
+- Reset не трогает auth/Supabase: ✓
+- UI без "demo/concept/MVP/placeholder" в видимых блоках: ✓
+- protoNote/demoBoundary — легитимные technical notices, не черновик
+
+### Known future work (за рамками 9.1)
+
+- RLS hardening (auth.uid() или per-player token для validate UPDATE в rooms)
+- Server-side move validation (Edge Function)
+- Draw offer логика
+- Timers / bullet / blitz time controls
+- Reconnect / heartbeat для abandoned rooms
+- Account Supabase save для multiplayer (source_room_code idempotency в matches)
+- Matchmaking (случайный соперник)
+- Deployment на Vercel

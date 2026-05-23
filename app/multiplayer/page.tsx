@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
-import { hasBrowserSupabaseConfig } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { createRoom, getRoom } from "@/lib/supabase/multiplayer";
+import { loadAccountProfile } from "@/lib/supabase/profiles";
 import { loadGuestProfile, createGuestProfile } from "@/lib/demo/progress";
 import { translations } from "@/lib/i18n/translations";
 
@@ -30,7 +31,17 @@ export default function MultiplayerPage() {
     setPlayerName(profile.nickname);
     guestIdRef.current = profile.id;
 
-    if (!hasBrowserSupabaseConfig()) {
+    const supabase = createClient();
+    if (supabase) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        loadAccountProfile(supabase, user).then((result) => {
+          if (result.profile?.nickname) {
+            setPlayerName(result.profile.nickname);
+          }
+        });
+      });
+    } else {
       setSupabaseReady(false);
     }
   }, []);
@@ -60,7 +71,7 @@ export default function MultiplayerPage() {
     if (!supabaseReady) return;
     const code = joinCode.trim().toUpperCase();
     if (!code || code.length < 4) {
-      setError("Enter a valid room code.");
+      setError(tm.invalidCode);
       return;
     }
     setError(null);
@@ -119,7 +130,7 @@ export default function MultiplayerPage() {
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             maxLength={24}
-            placeholder="Your name"
+            placeholder={tm.playerNamePlaceholder}
             className="w-full rounded border border-arena-border bg-arena-elevated px-3 py-2 text-sm outline-none focus:border-arena-blue"
           />
         </div>

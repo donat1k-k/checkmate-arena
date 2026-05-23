@@ -1593,3 +1593,77 @@ alter publication supabase_realtime add table public.multiplayer_rooms;
 - Timers / bullet / blitz time controls.
 - Matchmaking (случайный соперник).
 - Spectator chat.
+
+## Этап 9.1 — Global QA + Consistency Fixes + Final MVP Polish. Статус: завершён (2026-05-23)
+
+### Цель
+
+Финальная стабилизация перед деплоем: точечные баги, i18n-дыры, docs. Без новых больших фич.
+
+### Аудит — найдено и исправлено
+
+**1. Multiplayer nickname autofill** — основной баг этапа.
+
+`app/multiplayer/page.tsx` не проверял Supabase-сессию — authenticated user
+видел поле с именем из guest profile и был вынужден вводить имя заново каждый раз.
+
+Фикс: тот же паттерн, что в `app/page.tsx`:
+- guest profile → initial nickname (fallback)
+- async `supabase.auth.getUser()` → если есть сессия → `loadAccountProfile()` → override nickname
+- поле остаётся редактируемым
+
+**2. Hardcoded EN строки** — две строки в `app/multiplayer/page.tsx`:
+- Ошибка валидации кода (было: `"Enter a valid room code."`) → `tm.invalidCode`
+- Placeholder поля имени (было: `"Your name"`) → `tm.playerNamePlaceholder`
+
+**3. i18n additions** — `lib/i18n/translations.ts`:
+- Добавлены `multiplayer.invalidCode` и `multiplayer.playerNamePlaceholder` в EN и RU
+
+### Аудит — verified OK (без изменений)
+
+| Область | Результат |
+|---------|-----------|
+| Rating Home = Profile | ✓ account override реализован в 9.0B |
+| History по всем типам игр | ✓ localStorage/Supabase раздельные пути |
+| Review link для всех типов | ✓ guest/account/room-{code} |
+| Economy reset полный | ✓ coins/purchases/equipped/clan/trial/AI reviews/blitz stats |
+| Reset не трогает auth | ✓ |
+| Store Buy→Owned→Equip | ✓ реализовано в 8.1C |
+| Blitz click/drag/feedback | ✓ реализовано в 8.1C |
+| Multiplayer resign/promotion/history | ✓ реализовано в 9.0B |
+| UI без blacklisted слов | ✓ demo/concept/MVP/placeholder нет в видимом UI |
+| protoNote/demoBoundary | ✓ легитимные technical notices |
+
+### Файлы
+
+- `app/multiplayer/page.tsx` — nickname autofill + 2 hardcoded strings
+- `lib/i18n/translations.ts` — 2 новых ключа в multiplayer namespace (EN+RU)
+- `docs/HANDOFF.md` — этот раздел
+- `docs/DECISIONS.md` — Stage 9.1 решения
+
+### Команды и проверки
+
+- `npm run build` — OK (17 routes, TypeScript OK).
+- `git diff --check` — OK (только стандартные LF→CRLF warnings).
+
+### Что проверить вручную
+
+1. Авторизоваться → `/multiplayer` → поле имени заполнено account nickname, не guest.
+2. Гостем → `/multiplayer` → поле имени из guest localStorage profile.
+3. Ввести код < 4 символов → ошибка на языке UI (RU: "Введите корректный код комнаты.").
+4. RU/EN переключение → placeholder поля имени следует языку.
+5. Полный multiplayer flow: create → join → ходы → resign → review → profile history.
+6. Blitz Easy/Medium/Hard: solve/wrong/timeout.
+7. Store buy/equip/reset.
+8. Mobile 375px основные страницы.
+
+### Known future work
+
+- RLS hardening (auth.uid() или per-player token)
+- Server-side move validation (Edge Function)
+- Draw offer логика
+- Timers / bullet / blitz time controls
+- Reconnect / heartbeat для abandoned rooms
+- Account Supabase save для multiplayer (source_room_code idempotency)
+- Matchmaking (случайный соперник)
+- Deployment на Vercel
