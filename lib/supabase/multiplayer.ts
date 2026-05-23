@@ -277,6 +277,38 @@ export async function makeRoomMove(
   return { ok: true, data: normalizeRoom(data) };
 }
 
+export async function resignRoom(
+  roomCode: string,
+  resigningColor: "w" | "b",
+): Promise<RoomResult<RoomRow>> {
+  const supabase = createClient();
+  if (!supabase) return { ok: false, error: "db_not_configured" };
+
+  const newStatus: RoomStatus = resigningColor === "w" ? "black_won" : "white_won";
+  const newResult = resigningColor === "w" ? "black_won" : "white_won";
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("multiplayer_rooms")
+    .update({
+      status: newStatus,
+      result: newResult,
+      finish: "resignation",
+      updated_at: now,
+      last_move_at: now,
+    })
+    .eq("room_code", roomCode.toUpperCase())
+    .select()
+    .single();
+
+  if (error) {
+    if (isTableNotFound(error)) return { ok: false, error: "table_not_found" };
+    return { ok: false, error: "request_failed" };
+  }
+
+  return { ok: true, data: normalizeRoom(data) };
+}
+
 export function subscribeToRoom(
   roomCode: string,
   onUpdate: (room: RoomRow) => void,

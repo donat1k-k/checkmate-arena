@@ -1507,10 +1507,89 @@ alter publication supabase_realtime add table public.multiplayer_rooms;
 
 ### Следующий логичный этап
 
-**Stage 9.0B**:
-- Улучшенный RLS (auth.uid() или custom claim для guest_id).
+**Stage 9.0B**: ← выполнен ниже.
+
+## Этап 9.0B — Multiplayer Room Hardening + Review/History. Статус: завершён (2026-05-23)
+
+### Сделано
+
+**1. Join state polling fallback**
+- Пока `room.status === "waiting"` и `black_guest_id` пуст — `setInterval(2500)` делает `getRoom()` как fallback если Realtime пропустил первый UPDATE при join.
+- Polling останавливается при изменении status или размонтировании.
+- Во время активной игры polling не работает — весь sync через Realtime.
+
+**2. Resign**
+- `resignRoom(roomCode, resigningColor)` в `lib/supabase/multiplayer.ts`: UPDATE status/result/finish='resignation'.
+- Кнопка "Resign" видна только активному игроку, только пока игра активна.
+- Confirm перед сдачей. Синхронизируется через Realtime к сопернику.
+- "Draw offer" — disabled Coming soon кнопка рядом (логика не реализована).
+
+**3. Check / game status banners**
+- `new Chess(room.fen).inCheck()` вычисляется после каждого обновления FEN.
+- Красный banner "Your king is in check!" если шах твоему королю.
+- Amber banner "Opponent is in check" если шах сопернику.
+
+**4. Turn indicator с цветами**
+- Зелёный dot + зелёный текст "Your turn" когда мой ход.
+- Мигающий amber dot + amber текст "Opponent's turn" когда не мой ход.
+- Нейтральный для зрителей и game over.
+
+**5. Promotion modal overlay**
+- Заменён inline-ряд на `fixed inset-0 z-50` overlay с `bg-black/70` backdrop.
+- 2×2 grid кнопок Q/R/B/N с полным названием фигуры (Queen/Rook/Bishop/Knight — EN; Ферзь/Ладья/Слон/Конь — RU).
+- Заметен, нельзя пропустить.
+
+**6. Multiplayer match history + review** (bugfix 9.0B-patch)
+- Account save path: если пользователь authenticated → `recordAccountMatch()` → Supabase `matches` + `match_reviews` + `profiles` rating update.
+- Guest/fallback path: `recordCompletedMatch()` → localStorage с id=`room-{room_code}`.
+- **Idempotency ledger** (`checkmate-arena.saved-mp-rooms.v1`): localStorage `Record<room_code, matchId>` предотвращает повторный save на reload. Первое действие при финише: проверить ledger.
+- "Open review" кнопка ведёт на `/review/{matchId}` — стандартный review flow работает для обоих путей.
+- Матч появляется в `/profile` history: account → Supabase history, guest → localStorage history.
+
+**7. AI Coach Fair Play teaser**
+- Amber card в правом сайдбаре объясняет, почему нет live hints в PvP.
+- После game over карточка показывает "Open review with AI Coach" → ссылку на review.
+
+**8. Rating sync Home/Profile** (bugfix 9.0B-patch)
+- `app/page.tsx` теперь account-aware: после local guest load, асинхронно проверяет Supabase session.
+- Если authenticated → override rating/wins/losses/draws из `AccountProfile`.
+- Home и Profile показывают одинаковый rating после refresh.
+
+**9. i18n**
+- Новые ключи в `multiplayer` namespace: resignBtn, resignConfirm, drawOfferBtn, drawOfferComingSoon, inCheck, opponentInCheck, promotionTitle, promotionPiece.{q/r/b/n}, aiCoachEyebrow, aiCoachFairPlay, aiCoachAfterGame, openReview, matchSaved — в EN и RU.
+
+### Файлы
+
+- `lib/supabase/multiplayer.ts` — добавлена `resignRoom()`
+- `app/room/[code]/page.tsx` — все UI изменения + account save + idempotency ledger
+- `app/page.tsx` — account-aware rating (Supabase override when authenticated)
+- `lib/i18n/translations.ts` — новые ключи multiplayer namespace
+
+### Команды и проверки
+
+- `npm run build` — OK (17 routes, TypeScript OK).
+- `git diff --check` — OK (только стандартные LF→CRLF warnings).
+
+### Что проверить вручную
+
+1. **Браузер A** создаёт комнату → ждёт друга. **Браузер B** открывает ссылку → A видит "Friend joined" БЕЗ reload (polling fallback).
+2. Сделать ход на Браузере A → Браузер B получает ход через Realtime.
+3. Довести позицию до шаха → красный banner появляется у игрока под шахом.
+4. Передвинуть пешку на последнюю горизонталь → overlay с 4 кнопками (не маленький ряд).
+5. Нажать Resign → confirm dialog → партия завершается, результат синхронизируется.
+6. Game over → "Open review" button видна (если оба игрока в одном браузере — только один видит кнопку, т.к. только один guest profile).
+7. `/review/room-{code}` открывается, показывает список ходов.
+8. `/profile` → match history → матч с комнатой присутствует.
+9. Reload `/room/{code}` после game over → матч не дублируется в истории.
+10. Mobile 375px — resign/draw offer buttons не создают overflow, overlay корректен.
+
+### Что осталось на Stage 9.0C
+
+- RLS hardening (auth.uid() или per-player token для validate UPDATE).
 - Server-side move validation (Edge Function).
-- Reconnect/heartbeat для abandoned rooms.
-- Сохранение multiplayer match в match history / review.
-- Resign button для мультиплеер-партии.
-- Таймер (опционально).
+- Reconnect / heartbeat для abandoned rooms.
+- Account Supabase save для multiplayer (нужен `source_room_code` idempotency в `matches`).
+- Draw offer logic.
+- Timers / bullet / blitz time controls.
+- Matchmaking (случайный соперник).
+- Spectator chat.

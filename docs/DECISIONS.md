@@ -572,3 +572,63 @@ Supabase SQL Editor. **Не применялось к реальной БД ав
 ```sql
 alter publication supabase_realtime add table public.multiplayer_rooms;
 ```
+
+## 2026-05-23 — Stage 9.0B: Multiplayer Room Hardening
+
+### Join state polling fallback
+
+Supabase Realtime надёжно доставляет UPDATE-события, но могут быть случаи,
+когда первый JOIN пропускается (race condition при subscribe/join). Решение:
+пока `room.status === "waiting"` и `black_guest_id` пуст — запускается
+`setInterval(2500)` с `getRoom()`. Polling останавливается при изменении
+статуса или размонтировании компонента. Во время активной игры polling не
+работает — весь sync через Realtime.
+
+### Resign
+
+Реализован через `resignRoom(roomCode, resigningColor)`: клиентский UPDATE
+статуса и результата (`finish = "resignation"`). Supabase Realtime доставляет
+UPDATE обоим игрокам. Кнопка видна только текущим игрокам (не зрителям),
+только пока игра активна. Confirm перед сдачей.
+
+### Multiplayer match history — localStorage, id=`room-{code}`
+
+Завершённый multiplayer матч сохраняется в localStorage (тот же `LocalMatch`
+слой, что и обычные guest матчи). Используется `recordCompletedMatch()` с
+`id = "room-{room_code}"`. Встроенная идемпотентность: повторный reload не
+создаёт дубликат (функция пропускает, если match.id уже существует).
+
+Рейтинговый delta ±25 как в обычных матчах — friend rooms дают такой же
+прогресс рейтингу, как и solo игры. Это сознательное решение для MVP.
+
+Account Supabase save для multiplayer — отдельная задача (9.0C): нужен
+`source_room_code` для idempotency в `matches` таблице и согласование двух
+игроков на одну запись.
+
+### Multiplayer match save — account vs guest
+
+Account path (authenticated): `recordAccountMatch()` → Supabase `matches` + `match_reviews` + `profiles`.
+Результат: match ID — Supabase UUID. Используется как `/review/{UUID}`.
+
+Guest / fallback: `recordCompletedMatch()` → localStorage. Match ID = `room-{room_code}`.
+Используется как `/review/room-{room_code}`.
+
+Idempotency: localStorage ledger `checkmate-arena.saved-mp-rooms.v1` (Record<room_code, matchId>).
+Проверяется ДО попытки save — повторный reload finished room не создаёт дубликат.
+
+### Rating source consistency (Home vs Profile)
+
+Home page (`app/page.tsx`) теперь account-aware: загружает `AccountProfile` из Supabase если пользователь authenticated, overrides local guest stats. Поэтому Home и Profile показывают одинаковый account rating.
+
+Guest без auth: Home и Profile оба читают `loadGuestProfile()` из localStorage — всегда были консистентны.
+
+### Live AI hints в PvP отключены (Fair Play)
+
+В `/room/[code]` показывается AI Coach teaser card с явным объяснением:
+"Live hints disabled for Fair Play". После завершения партии — CTA на review
+с AI Coach. Реальная подсказка в ходе PvP не выдаётся ни по какому пути.
+
+### Draw offer / timers / anti-cheat / reconnect
+
+Draw offer показан как disabled Coming soon кнопка. Логика, timers,
+reconnect, RLS hardening, server-side validation — Stage 9.0C.

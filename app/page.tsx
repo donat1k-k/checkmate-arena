@@ -16,6 +16,8 @@ import {
   loadGuestProfile,
   type LocalMatch,
 } from "@/lib/demo/progress";
+import { createClient } from "@/lib/supabase/client";
+import { loadAccountProfile } from "@/lib/supabase/profiles";
 
 export default function HomePage() {
   const { t } = usePreferences();
@@ -34,12 +36,30 @@ export default function HomePage() {
     setCustomization(loadProfileCustomization());
     const saved = loadMatches();
     setMatches(saved.slice().reverse().slice(0, 5));
-    const profile = loadGuestProfile();
-    if (profile) {
-      setGuestRating(profile.rating);
-      setWins(profile.wins);
-      setLosses(profile.losses);
-      setDraws(profile.draws);
+
+    // Load local guest profile as initial values
+    const guestProfile = loadGuestProfile();
+    if (guestProfile) {
+      setGuestRating(guestProfile.rating);
+      setWins(guestProfile.wins);
+      setLosses(guestProfile.losses);
+      setDraws(guestProfile.draws);
+    }
+
+    // Override with account profile if authenticated (so Home matches Profile)
+    const supabase = createClient();
+    if (supabase) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        loadAccountProfile(supabase, user).then((result) => {
+          if (result.profile) {
+            setGuestRating(result.profile.rating);
+            setWins(result.profile.wins);
+            setLosses(result.profile.losses);
+            setDraws(result.profile.draws);
+          }
+        });
+      });
     }
   }, []);
 
