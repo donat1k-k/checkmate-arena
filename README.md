@@ -55,7 +55,7 @@ Checkmate Arena — соревновательная шахматная плат
 | Нет прогрессии | ELO, LVL 1–10, ELO-график, роль/стиль, достижения |
 | Нет монетизации | Free / Pro / Ultra pricing shell, готов к Stripe |
 | Нет социального слоя | Лидерборд с городами, кланы, commend/report |
-| Один язык | RU / EN полное покрытие, 300+ строк i18n |
+| Локализация | RU / EN покрытие основных пользовательских сценариев, 300+ строк i18n |
 | Нет мобилки | Mobile-first 375px, протестировано |
 
 ---
@@ -132,7 +132,7 @@ Checkmate Arena — соревновательная шахматная плат
 ### Blitz Mate Rush
 | Фича | Детали |
 |------|--------|
-| 22 позиции | Easy × 6, Medium × 6, Hard × 10 |
+| 22 позиции | Easy × 8, Medium × 8, Hard × 6 |
 | Таймер + подсказки | Лимит времени, 1 подсказка на сессию (Pro — unlimited teaser) |
 | Клик + drag | Выбор фигуры, подсветка ходов, подтверждение решения |
 | AC Rewards | Coins за решённые задачи, idempotency по puzzle id |
@@ -150,7 +150,7 @@ Checkmate Arena — соревновательная шахматная плат
 ### Инфраструктура
 | Фича | Детали |
 |------|--------|
-| RU / EN i18n | ~300 ключей по всем экранам. Нет захардкоженного пользовательского текста |
+| RU / EN i18n | ~300 ключей по основным экранам; отдельные технические строки могут оставаться в коде |
 | Dark / Light theme | Amber-система токенов. No flash при перезагрузке |
 | Mobile 375px | Все страницы протестированы, нет горизонтального overflow |
 | Auth | Supabase email auth. Guest mode без auth-стены |
@@ -327,14 +327,18 @@ npm run start
 -- Шаг 1: base schema
 -- Вставить содержимое supabase/schema.sql
 
--- Шаг 2: AI analysis column
--- Вставить содержимое supabase/migrations/0002_add_ai_analysis.sql
+-- Важно: schema.sql уже содержит match_reviews.ai_analysis
+-- и policy reviews_update_participant. После полного schema.sql
+-- НЕ запускайте 0002_add_ai_analysis.sql повторно.
 
--- Шаг 3: multiplayer rooms
+-- Шаг 2: multiplayer rooms
 -- Вставить содержимое supabase/migrations/0004_multiplayer_rooms.sql
 
--- Шаг 4: включить Realtime для мультиплеера
+-- Шаг 3: включить Realtime для мультиплеера
 alter publication supabase_realtime add table public.multiplayer_rooms;
+
+-- Только для incremental setup старой БД:
+-- supabase/migrations/0002_add_ai_analysis.sql
 ```
 
 В Supabase Dashboard:
@@ -401,4 +405,4 @@ docker run --env-file .env.local -p 3000:3000 checkmate-arena
 
 ## English summary
 
-**Checkmate Arena** is a full-stack competitive chess platform built as a startup-ready prototype. Beyond a standard chess board, it delivers: real-time friend rooms via Supabase Realtime, an AI Coach that reviews every game with structured insight cards and a move-by-move Q&A, Blitz Mate Rush (quick puzzle mode), a progression system (ELO, levels, ELO graph), an internal economy with Arena Coins and a cosmetics store, and a Free/Pro/Ultra monetization shell ready for Stripe. The social layer includes a city-filtered global leaderboard, clan tags, and commend/report. Built with Next.js 16, TypeScript, Tailwind CSS v4, chess.js, Supabase (Auth + Postgres + Realtime), and an OpenAI-compatible AI layer. Full RU/EN i18n, mobile-responsive, Docker + Vercel deploy path. Real payments are intentionally not wired — the billing infrastructure (pricing page, feature gates, trial counters) is product-complete and Stripe-ready.
+**Checkmate Arena** is a full-stack competitive chess platform built as a startup-ready prototype. Beyond a standard chess board, it delivers: real-time friend rooms via Supabase Realtime, an AI Coach that reviews every game with structured insight cards and a move-by-move Q&A, Blitz Mate Rush (quick puzzle mode), a progression system (ELO, levels, ELO graph), an internal economy with Arena Coins and a cosmetics store, and a Free/Pro/Ultra monetization shell ready for Stripe. The social layer includes a city-filtered global leaderboard, clan tags, and commend/report. Built with Next.js 16, TypeScript, Tailwind CSS v4, chess.js, Supabase (Auth + Postgres + Realtime), and an OpenAI-compatible AI layer. Broad RU/EN i18n coverage, mobile-responsive, Docker + Vercel deploy path. Real payments are intentionally not wired — the billing infrastructure (pricing page, feature gates, trial counters) is product-complete and Stripe-ready.

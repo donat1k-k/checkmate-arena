@@ -167,7 +167,7 @@ export default function HomePage() {
                   ♟ {t.home.playCta}
                 </button>
                 <Link
-                  href="/profile"
+                  href="/leaderboard"
                   className="rounded-md border border-arena-border bg-arena-elevated px-5 py-2.5 font-medium hover:border-arena-gold"
                 >
                   ◈ {t.home.leaderboardCta}

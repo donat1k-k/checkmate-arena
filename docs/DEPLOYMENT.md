@@ -77,21 +77,27 @@ Provider examples:
 
 ### 3.2 Apply schema
 
-Run each file in Supabase SQL Editor in order:
+For a fresh Supabase project, run the full schema first. It already includes
+`match_reviews.ai_analysis` and the `reviews_update_participant` policy, so do
+not run `0002_add_ai_analysis.sql` again after `schema.sql`.
 
 ```sql
--- 1. Base schema (profiles, matches, match_reviews, RLS)
+-- Fresh setup: base schema (profiles, matches, match_reviews, RLS, AI analysis)
 -- Paste contents of: supabase/schema.sql
 ```
 
 ```sql
--- 2. AI analysis column
--- Paste contents of: supabase/migrations/0002_add_ai_analysis.sql
+-- Multiplayer rooms table
+-- Paste contents of: supabase/migrations/0004_multiplayer_rooms.sql
 ```
 
+Use `supabase/migrations/0002_add_ai_analysis.sql` only for an incremental
+upgrade of an older database that was created before `ai_analysis` and
+`reviews_update_participant` were added to `schema.sql`.
+
 ```sql
--- 3. Multiplayer rooms table
--- Paste contents of: supabase/migrations/0004_multiplayer_rooms.sql
+-- Incremental setup only, not after the current full schema.sql
+-- Paste contents of: supabase/migrations/0002_add_ai_analysis.sql
 ```
 
 ### 3.3 Enable Realtime
@@ -131,6 +137,16 @@ Check that Row Level Security is enabled on all tables:
 docker build -t checkmate-arena .
 ```
 
+For Supabase-enabled Docker builds, pass only the public Supabase values as
+build args. Keep server secrets for runtime env only.
+
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key \
+  -t checkmate-arena .
+```
+
 The Dockerfile uses a 3-stage build:
 - **deps** — production-only `node_modules`
 - **builder** — full build with `npm run build`
@@ -154,7 +170,7 @@ curl http://localhost:3000/api/health
 
 ### 4.4 Notes
 
-- ENV variables are not baked into the image — always pass via `--env-file` or secrets manager
+- Only `NEXT_PUBLIC_*` values may be passed as build args; server-only secrets stay in `--env-file` or a secrets manager
 - `.env.local` is in `.dockerignore` — never enters the build context
 - Port is fixed at 3000; map to any host port with `-p HOST_PORT:3000`
 
@@ -201,7 +217,7 @@ Before going live, verify:
 - [ ] `.env.local` (or CI/CD secrets) contains all 6 required vars
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` is NOT prefixed with `NEXT_PUBLIC_`
 - [ ] `AI_COACH_API_KEY` is NOT prefixed with `NEXT_PUBLIC_`
-- [ ] Supabase schema + all migrations applied
+- [ ] Supabase full schema applied, or older DB upgraded with needed incremental migrations
 - [ ] Realtime enabled for `multiplayer_rooms`
 - [ ] Email auth provider enabled
 - [ ] Production redirect URL added in Supabase Auth settings

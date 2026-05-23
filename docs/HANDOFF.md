@@ -1784,8 +1784,38 @@ alter publication supabase_realtime add table public.multiplayer_rooms;
 
 ### Следующий шаг — actual deploy
 1. Push to GitHub.
-2. Создать Supabase production project, применить `schema.sql` + обе миграции + Realtime.
+2. Создать Supabase production project, применить fresh setup из `docs/DEPLOYMENT.md` + Realtime.
 3. Настроить Vercel: import repo, добавить env vars, production redirect URL.
 4. Пройти smoke test из `docs/DEPLOYMENT.md` раздел 7.
 5. Опционально: `docker build -t checkmate-arena .` для Docker deploy.
+
+## Final pre-submit fix-пакет. Статус: завершён (2026-05-23)
+
+Маленький фикс-пакет по итогам read-only аудита, без изменения архитектуры,
+production Supabase и без запуска миграций.
+
+### Сделано
+- `lib/demo/blitz.ts`: исправлены только `bp5`, `bp8`, `bp11`, `bp13`, `bp17`;
+  все 22 Blitz solution теперь legal по `chess.js`.
+- `Dockerfile`: добавлен `mkdir -p public` перед build и build args только для
+  `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- `.dockerignore`: добавлены `.env`, `.env.production`, `.env*.production`.
+- `docs/DEPLOYMENT.md` и `README.md`: fresh Supabase setup больше не предлагает
+  запускать `0002_add_ai_analysis.sql` после полного `schema.sql`; `0002`
+  описан как incremental-only.
+- Home CTA `See Leaderboard` / `Смотреть лидерборд` ведёт на `/leaderboard`.
+- `README.md`: Blitz counts обновлены до фактических `Easy ×8, Medium ×8,
+  Hard ×6`; claim про i18n смягчён до покрытия основных сценариев.
+
+### Проверки
+- `npm run build` — OK.
+- Blitz validation через Node + `chess.js` — OK, `checked=22`.
+- `git diff --check` — OK, только стандартные LF→CRLF warnings.
+
+### Что проверить вручную
+- Главная: CTA лидерборда открывает `/leaderboard`.
+- README / `docs/DEPLOYMENT.md`: fresh setup понятен, `0002` не предлагается
+  повторно после полного `schema.sql`.
+- Docker deploy: при production Supabase передавать только public build args,
+  server-only секреты оставлять runtime env.
 
