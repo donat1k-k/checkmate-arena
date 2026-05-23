@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ArenaPreviewBoard from "@/components/chess/ArenaPreviewBoard";
 import ArenaAvatar from "@/components/profile/ArenaAvatar";
 import { usePreferences } from "@/components/settings/PreferencesProvider";
@@ -19,8 +20,81 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { loadAccountProfile } from "@/lib/supabase/profiles";
 
+function PlayModeModal({ onClose }: { onClose: () => void }) {
+  const { t } = usePreferences();
+  const router = useRouter();
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  const modes = [
+    {
+      icon: "♟",
+      label: t.home.modeQuick,
+      body: t.home.modeQuickBody,
+      href: "/play",
+      accent: false,
+    },
+    {
+      icon: "🤖",
+      label: t.home.modeAiMode,
+      body: t.home.modeAiModeBody,
+      href: "/play?mode=ai",
+      accent: false,
+    },
+    {
+      icon: "🔗",
+      label: t.home.modeMultiplayer,
+      body: t.home.modeMultiplayerBody,
+      href: "/multiplayer",
+      accent: false,
+    },
+    {
+      icon: "⚡",
+      label: t.home.modeBlitzMode,
+      body: t.home.modeBlitzModeBody,
+      href: "/blitz",
+      accent: false,
+    },
+  ] as const;
+
+  return (
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60"
+      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+    >
+      <div className="w-full max-w-sm rounded-xl border border-arena-border bg-arena-panel shadow-2xl">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <p className="text-sm font-bold">{t.home.pickModeTitle}</p>
+          <button
+            onClick={onClose}
+            className="text-arena-muted hover:text-arena-text text-lg leading-none"
+          >
+            ×
+          </button>
+        </div>
+        <div className="flex flex-col gap-1 px-3 pb-4">
+          {modes.map((m) => (
+            <button
+              key={m.href}
+              onClick={() => { router.push(m.href); onClose(); }}
+              className="flex items-center gap-3 rounded-lg border border-arena-border bg-arena-elevated px-4 py-3 text-left hover:border-arena-blue hover:bg-arena-blue/5 active:scale-[0.98] transition-all"
+            >
+              <span className="text-xl w-7 text-center shrink-0">{m.icon}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate">{m.label}</div>
+                <div className="text-[11px] text-arena-muted leading-snug truncate">{m.body}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { t } = usePreferences();
+  const [showModeModal, setShowModeModal] = useState(false);
   const [matches, setMatches] = useState<LocalMatch[]>([]);
   const [guestRating, setGuestRating] = useState<number | null>(null);
   const [wins, setWins] = useState(0);
@@ -64,6 +138,7 @@ export default function HomePage() {
   }, []);
 
   return (
+    <>
     <div className="flex flex-col gap-0 -mx-4 -mt-5 sm:-mt-6">
       {/* ── HERO ── */}
       <div className="border-b border-arena-border bg-arena-panel px-4 py-9">
@@ -84,12 +159,13 @@ export default function HomePage() {
                 {t.home.intro}
               </p>
               <div className="flex gap-2.5 flex-wrap">
-                <Link
-                  href="/play"
+                <button
+                  type="button"
+                  onClick={() => setShowModeModal(true)}
                   className="rounded-md bg-arena-blue px-5 py-2.5 font-semibold text-white hover:opacity-90"
                 >
                   ♟ {t.home.playCta}
-                </Link>
+                </button>
                 <Link
                   href="/profile"
                   className="rounded-md border border-arena-border bg-arena-elevated px-5 py-2.5 font-medium hover:border-arena-gold"
@@ -265,16 +341,17 @@ export default function HomePage() {
                   <span className="panel-ttl">{t.home.quickActions}</span>
                 </div>
                 <div className="p-2 flex flex-col gap-1.5">
-                  <Link
-                    href="/play"
-                    className="flex items-center gap-3 rounded-lg border border-arena-blue bg-arena-blue px-4 py-3 text-white hover:opacity-90 transition-opacity"
+                  <button
+                    type="button"
+                    onClick={() => setShowModeModal(true)}
+                    className="flex w-full items-center gap-3 rounded-lg border border-arena-blue bg-arena-blue px-4 py-3 text-white hover:opacity-90 transition-opacity"
                   >
                     <span className="text-lg">♟</span>
-                    <div>
+                    <div className="text-left">
                       <div className="text-sm font-semibold">{t.home.playCta}</div>
                       <div className="text-[10px] opacity-75">{t.play.localRanked}</div>
                     </div>
-                  </Link>
+                  </button>
                   <Link
                     href="/blitz"
                     className="flex items-center gap-3 rounded-lg border border-arena-border bg-arena-panel px-4 py-3 hover:bg-arena-elevated transition-colors"
@@ -339,5 +416,7 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+    {showModeModal && <PlayModeModal onClose={() => setShowModeModal(false)} />}
+    </>
   );
 }

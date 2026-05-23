@@ -229,25 +229,31 @@ export default function PlayPage() {
     if (!profileLoaded || !profile) return;
 
     const draft = loadActiveGame();
-    if (!draft || draft.profileId !== profile.id) return;
-
-    try {
-      const restoredGame = ChessGame.loadFromPgn(draft.pgn);
-      if (restoredGame.isGameOver()) {
+    if (draft && draft.profileId === profile.id) {
+      try {
+        const restoredGame = ChessGame.loadFromPgn(draft.pgn);
+        if (restoredGame.isGameOver()) {
+          clearActiveGame();
+        } else {
+          gameRef.current = restoredGame;
+          matchIdRef.current = draft.matchId;
+          matchCreatedAtRef.current = draft.createdAt;
+          setMode(draft.mode ?? "local");
+          setAiDifficulty(draft.aiDifficulty ?? "beginner");
+          setSideChoice(draft.sideChoice ?? "white");
+          setPlayerColor(draft.playerColor ?? "w");
+          setGameRestored(true);
+          forceUpdate();
+        }
+      } catch {
         clearActiveGame();
-        return;
       }
-      gameRef.current = restoredGame;
-      matchIdRef.current = draft.matchId;
-      matchCreatedAtRef.current = draft.createdAt;
-      setMode(draft.mode ?? "local");
-      setAiDifficulty(draft.aiDifficulty ?? "beginner");
-      setSideChoice(draft.sideChoice ?? "white");
-      setPlayerColor(draft.playerColor ?? "w");
-      setGameRestored(true);
-      forceUpdate();
-    } catch {
-      clearActiveGame();
+    }
+
+    // URL param ?mode=ai overrides draft mode
+    if (typeof window !== "undefined") {
+      const urlMode = new URLSearchParams(window.location.search).get("mode");
+      if (urlMode === "ai") setMode("ai");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileLoaded, profile?.id]);

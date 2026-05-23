@@ -7,7 +7,7 @@ import { usePreferences } from "@/components/settings/PreferencesProvider";
 import { createClient } from "@/lib/supabase/client";
 import { createRoom, getRoom } from "@/lib/supabase/multiplayer";
 import { loadAccountProfile } from "@/lib/supabase/profiles";
-import { loadGuestProfile, createGuestProfile } from "@/lib/demo/progress";
+import { loadGuestProfile, createGuestProfile, saveGuestProfile } from "@/lib/demo/progress";
 import { translations } from "@/lib/i18n/translations";
 
 export default function MultiplayerPage() {
@@ -25,9 +25,14 @@ export default function MultiplayerPage() {
   const [supabaseReady, setSupabaseReady] = useState(true);
 
   const guestIdRef = useRef<string>("");
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const profile = loadGuestProfile() ?? createGuestProfile("Guest");
+    let profile = loadGuestProfile();
+    if (!profile) {
+      profile = createGuestProfile("Guest");
+      saveGuestProfile(profile);
+    }
     setPlayerName(profile.nickname);
     guestIdRef.current = profile.id;
 
@@ -35,6 +40,7 @@ export default function MultiplayerPage() {
     if (supabase) {
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
+        userIdRef.current = user.id;
         loadAccountProfile(supabase, user).then((result) => {
           if (result.profile?.nickname) {
             setPlayerName(result.profile.nickname);
@@ -52,7 +58,7 @@ export default function MultiplayerPage() {
     setCreating(true);
 
     const name = playerName.trim() || "Guest";
-    const result = await createRoom({ playerName: name, guestId: guestIdRef.current });
+    const result = await createRoom({ playerName: name, guestId: guestIdRef.current, userId: userIdRef.current });
 
     setCreating(false);
     if (!result.ok) {

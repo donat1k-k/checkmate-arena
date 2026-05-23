@@ -21,6 +21,7 @@ import { createClient, hasBrowserSupabaseConfig } from "@/lib/supabase/client";
 import {
   createGuestProfile,
   loadGuestProfile,
+  saveGuestProfile,
   recordCompletedMatch,
 } from "@/lib/demo/progress";
 import {
@@ -119,17 +120,30 @@ export default function RoomPage() {
 
   const guestIdRef = useRef("");
   const playerNameRef = useRef("Guest");
+  const userIdRef = useRef<string | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Init: load guest profile ──────────────────────────────────────────────
   useEffect(() => {
-    const profile = loadGuestProfile() ?? createGuestProfile("Guest");
+    let profile = loadGuestProfile();
+    if (!profile) {
+      profile = createGuestProfile("Guest");
+      saveGuestProfile(profile);
+    }
     guestIdRef.current = profile.id;
     playerNameRef.current = profile.nickname;
     if (code) {
       setCommended(hasCommendedRoom(code));
       setReported(hasReportedRoom(code));
+    }
+
+    // Load authenticated userId for identity (same account on multiple devices)
+    const supabase = createClient();
+    if (supabase) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        userIdRef.current = user?.id ?? null;
+      });
     }
   }, [code]);
 
@@ -218,7 +232,7 @@ export default function RoomPage() {
   // ── Auto-join as Black if slot is open ───────────────────────────────────
   useEffect(() => {
     if (!room || !guestIdRef.current) return;
-    const myColor = playerColorInRoom(room, guestIdRef.current);
+    const myColor = playerColorInRoom(room, guestIdRef.current, userIdRef.current);
     if (myColor) return;
     if (room.black_guest_id || room.black_name) return;
     if (room.status !== "waiting") return;
@@ -227,6 +241,7 @@ export default function RoomPage() {
     joinRoom(code, {
       playerName: playerNameRef.current,
       guestId: guestIdRef.current,
+      userId: userIdRef.current,
     }).then((result) => {
       setJoining(false);
       if (result.ok) {
@@ -242,7 +257,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (!room) return;
     const finished = isRoomFinished(room);
-    const myColor = playerColorInRoom(room, guestIdRef.current);
+    const myColor = playerColorInRoom(room, guestIdRef.current, userIdRef.current);
     if (!finished || !myColor) return;
 
     // Check ledger first — prevents duplicate saves on reload
@@ -320,7 +335,7 @@ export default function RoomPage() {
   }
 
   // ── Chess board helpers ───────────────────────────────────────────────────
-  const myColor = room ? playerColorInRoom(room, guestIdRef.current) : null;
+  const myColor = room ? playerColorInRoom(room, guestIdRef.current, userIdRef.current) : null;
 
   const canMove = useCallback(
     (r: RoomRow): boolean => {

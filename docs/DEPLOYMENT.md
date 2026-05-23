@@ -105,9 +105,13 @@ alter publication supabase_realtime add table public.multiplayer_rooms;
 In Supabase dashboard:
 - **Authentication → Providers** → enable **Email** provider
 - Optionally disable email confirmation for easier local testing
-- **Authentication → URL Configuration** → add redirect URLs:
-  - Local: `http://localhost:3000/auth/callback`
-  - Production: `https://your-domain.com/auth/callback`
+- **Authentication → URL Configuration**:
+  - **Site URL** → set to your production domain: `https://checkmate.donat1k.tech`
+  - **Redirect URLs** → add both:
+    - `http://localhost:3000/auth/callback` (local dev)
+    - `https://checkmate.donat1k.tech/auth/callback` (production)
+  - Without this, Supabase confirmation emails will redirect to the Site URL
+    regardless of the `emailRedirectTo` value sent by the app
 
 ### 3.5 Verify RLS
 

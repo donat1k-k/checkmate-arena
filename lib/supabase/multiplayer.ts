@@ -102,9 +102,14 @@ export function isRoomFinished(room: RoomRow): boolean {
 export function playerColorInRoom(
   room: RoomRow,
   guestId: string,
+  userId?: string | null,
 ): "w" | "b" | null {
   if (room.white_guest_id === guestId) return "w";
   if (room.black_guest_id === guestId) return "b";
+  if (userId) {
+    if (room.white_player_id === userId) return "w";
+    if (room.black_player_id === userId) return "b";
+  }
   return null;
 }
 
@@ -115,6 +120,7 @@ export function playerColorInRoom(
 export async function createRoom(args: {
   playerName: string;
   guestId: string;
+  userId?: string | null;
 }): Promise<RoomResult<RoomRow>> {
   const supabase = createClient();
   if (!supabase) return { ok: false, error: "db_not_configured" };
@@ -122,15 +128,18 @@ export async function createRoom(args: {
   const roomCode = generateRoomCode();
   const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
+  const insertData: Record<string, unknown> = {
+    room_code: roomCode,
+    fen: INITIAL_FEN,
+    white_name: args.playerName,
+    white_guest_id: args.guestId,
+    expires_at: expiresAt,
+  };
+  if (args.userId) insertData.white_player_id = args.userId;
+
   const { data, error } = await supabase
     .from("multiplayer_rooms")
-    .insert({
-      room_code: roomCode,
-      fen: INITIAL_FEN,
-      white_name: args.playerName,
-      white_guest_id: args.guestId,
-      expires_at: expiresAt,
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -163,7 +172,7 @@ export async function getRoom(roomCode: string): Promise<RoomResult<RoomRow>> {
 
 export async function joinRoom(
   roomCode: string,
-  args: { playerName: string; guestId: string },
+  args: { playerName: string; guestId: string; userId?: string | null },
 ): Promise<RoomResult<RoomRow>> {
   const supabase = createClient();
   if (!supabase) return { ok: false, error: "db_not_configured" };
@@ -173,34 +182,54 @@ export async function joinRoom(
 
   const room = roomResult.data;
 
-  // Already in this room
+  // Already in this room (by guestId or authenticated userId)
   if (
     room.white_guest_id === args.guestId ||
-    room.black_guest_id === args.guestId
+    room.black_guest_id === args.guestId ||
+    (args.userId && room.white_player_id === args.userId) ||
+    (args.userId && room.black_player_id === args.userId)
   ) {
     return { ok: true, data: room };
   }
 
-  // Black slot taken
-  if (room.black_guest_id || room.black_name) {
+  // Black slot taken or game already started
+  if (room.black_guest_id || room.black_name || room.status !== "waiting") {
     return { ok: false, error: "room_full" };
   }
 
   const now = new Date().toISOString();
+  const updatePayload: Record<string, unknown> = {
+    black_name: args.playerName,
+    black_guest_id: args.guestId,
+    status: "active",
+    updated_at: now,
+  };
+  if (args.userId) updatePayload.black_player_id = args.userId;
+
+  // Conditional update: only proceed if black slot is still empty (race protection)
   const { data, error } = await supabase
     .from("multiplayer_rooms")
-    .update({
-      black_name: args.playerName,
-      black_guest_id: args.guestId,
-      status: "active",
-      updated_at: now,
-    })
+    .update(updatePayload)
     .eq("room_code", roomCode.toUpperCase())
+    .is("black_guest_id", null)
     .select()
     .single();
 
   if (error) {
     if (isTableNotFound(error)) return { ok: false, error: "table_not_found" };
+    // PGRST116 = no rows matched (seat taken by concurrent join)
+    if ((error as { code?: string }).code === "PGRST116") {
+      const reread = await getRoom(roomCode);
+      if (!reread.ok) return reread;
+      const r = reread.data;
+      if (
+        r.black_guest_id === args.guestId ||
+        (args.userId && r.black_player_id === args.userId)
+      ) {
+        return { ok: true, data: r };
+      }
+      return { ok: false, error: "room_full" };
+    }
     return { ok: false, error: "request_failed" };
   }
 
