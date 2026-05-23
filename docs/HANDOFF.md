@@ -1735,3 +1735,57 @@ alter publication supabase_realtime add table public.multiplayer_rooms;
 - Timers/tournaments/matchmaking — без изменений
 - Supabase schema changes — не требовалось
 
+## Этап 10 — Final Submission Polish + README + Deploy Prep. Статус: завершён (2026-05-23)
+
+### Цель
+Подготовить проект к сдаче: документация, deploy guide, QA checklist, feature showcase.
+Новых фич нет. Supabase schema, chess engine, auth, AI routes, multiplayer — не трогались.
+
+### Создано
+
+| Файл | Статус |
+|------|--------|
+| `README.md` | Создан с нуля — GitHub-ready README |
+| `docs/FINAL_QA_CHECKLIST.md` | Новый файл — финальный QA checklist |
+| `docs/DEPLOYMENT.md` | Новый файл — полный deploy guide |
+| `docs/FEATURES.md` | Новый файл — feature showcase + roadmap |
+| `docs/HANDOFF.md` | Обновлён — добавлен этот раздел |
+| `docs/DECISIONS.md` | Обновлён — зафиксированы Stage 10 решения |
+
+### README.md содержит
+- Pitch-линия: "AI-powered chess arena with multiplayer rooms, AI coach, blitz puzzles, profile progression and monetization shell."
+- Feature table по слоям (chess core / AI / multiplayer / profile / economy / social / infra)
+- Tech stack table
+- Screenshot placeholders (8 экранов)
+- Setup: npm install, env vars table, Supabase SQL steps (4 шага + Realtime), auth config
+- Project structure (app/ components/ lib/ supabase/)
+- Known limitations table (8 пунктов)
+- Ссылки на docs/DEPLOYMENT.md и docs/FEATURES.md
+- Project status: "Stage 10 — Submission-ready"
+
+### UI text audit результат
+Проверены все `app/**/*.tsx` на слова "demo"/"placeholder"/"MVP"/"concept":
+- `demo` — только в import paths и i18n-ключах. Видимый текст чист.
+- `demoBoundary` → "Product boundary" (видимый текст, не черновое слово). OK.
+- `protoNote` → tiny muted disclaimer. Acceptable tech notice.
+- HTML `placeholder=` атрибуты — input fields, не основной контент.
+- Изменений UI не потребовалось.
+
+### Команды
+- `npm run build` — OK (см. ниже).
+- `git diff --check` — OK.
+
+### Что проверить перед commit
+1. `npm run build` — должен пройти.
+2. `npm run lint` — проверить наличие критических ошибок.
+3. `git diff --check` — без whitespace ошибок.
+4. Открыть README.md на GitHub preview и проверить markdown.
+5. Убедиться, что `.env.local` не в `git status`.
+
+### Следующий шаг — actual deploy
+1. Push to GitHub.
+2. Создать Supabase production project, применить `schema.sql` + обе миграции + Realtime.
+3. Настроить Vercel: import repo, добавить env vars, production redirect URL.
+4. Пройти smoke test из `docs/DEPLOYMENT.md` раздел 7.
+5. Опционально: `docker build -t checkmate-arena .` для Docker deploy.
+

@@ -708,3 +708,42 @@ localStorage с per-roomCode идемпотентностью (commendedRooms[],
 
 Кнопки показываются только `!isSpectator && finished`. Инициализация из `hasCommendedRoom(code)` в init useEffect.
 Причина: spectator-у некого commend/report; повторное нажатие предотвращено через localStorage idempotency.
+
+---
+
+## Stage 10 — Final Submission Polish (2026-05-23)
+
+### Нет новых фич, нет изменений схемы
+
+Stage 10 — исключительно документация и submission prep. Supabase schema, chess engine,
+auth flow, AI routes, multiplayer, i18n — не трогались.
+
+### UI text audit — результат
+
+Проведён аудит видимых пользовательских строк на слова "demo", "placeholder", "MVP", "concept":
+- Все вхождения слова `demo` — только в import-путях (`@/lib/demo/...`) и именах i18n-ключей.
+  Видимые строки чисты.
+- `demoBoundary` — i18n-ключ, видимый текст: "Product boundary" / "Граница продукта". Легитимно.
+- `protoNote` — "Friend rooms are a prototype." — tiny muted disclaimer text. Легитимный tech notice.
+- `placeholder` — атрибуты HTML input полей. Не видимый основной контент.
+- Изменений UI текстов не потребовалось. Всё уже чисто после этапов 8.1A / 9.1.
+
+### Документация — что создано
+
+| Файл | Содержание |
+|------|------------|
+| `README.md` | GitHub README с pitch, стеком, фичами, setup, env vars, known limitations, deploy links |
+| `docs/FINAL_QA_CHECKLIST.md` | Финальный чеклист по всем экранам и областям |
+| `docs/DEPLOYMENT.md` | Полный deploy guide: local, Docker, Vercel, Supabase, smoke test |
+| `docs/FEATURES.md` | Feature showcase: что реализовано, AI/business/social layers, roadmap |
+
+### Package.json scripts — верификация
+
+- `npm run dev` — `next dev --webpack` ✓
+- `npm run build` — `next build` ✓
+- `npm run start` — `next start` ✓
+- `npm run lint` — `next lint` ✓
+
+### Следующий шаг
+
+Actual deploy: Vercel + Supabase production environment. См. `docs/DEPLOYMENT.md`.
