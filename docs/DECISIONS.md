@@ -493,3 +493,82 @@ SiteShell теперь использует `usePathname()` и передаёт 
 - Equipped cosmetics — localStorage prototype layer, не Supabase.
 - Premium analytics — визуальный shell, нет аналитики и AI-вызовов.
 - Scouting — visual teaser, нет реального backend.
+
+## 2026-05-23 — Stage 9.0A: Multiplayer Rooms Foundation
+
+### Цель и подход
+
+Первый рабочий прототип «играть с другом по ссылке» поверх Supabase Realtime.
+Одна таблица `multiplayer_rooms`, один канал postgres_changes на комнату,
+гостевая идентификация через `guest_id` (localStorage profile.id).
+
+### Таблица `public.multiplayer_rooms`
+
+Хранит всё состояние партии в одной строке: FEN + PGN + san_moves[] + turn + status + result + finish.
+Обновление через UPDATE по `room_code` после каждого хода. Подписка на
+`postgres_changes / event: UPDATE / filter: room_code=eq.{code}`.
+
+Поля `white_player_id` / `black_player_id` nullable — аутентифицированный
+аккаунт не обязателен, достаточно guest_id из localStorage. Добавить аккаунт
+в этот flow можно на Stage 9.0B без schema-изменений.
+
+### RLS политики — prototype-level
+
+**Решение**: `rooms_select_all / rooms_insert_all / rooms_update_all` — все
+анонимные запросы разрешены (`using (true) / with check (true)`).
+
+**Почему**: это прототип, не production. Нет читаемых секретов в таблице, нет
+рейтинга, нет финансов. Задача — проверить realtime-синхронизацию.
+
+**Что НЕ продакшн**:
+- Нет проверки, что ход делает именно тот игрок, чья очередь.
+- Любой anon может UPDATE любую комнату (зная room_code).
+- Нет античита, нет per-player token.
+
+**Что делать на 9.0B для production**:
+- RLS: `using (white_guest_id = current_setting('app.guest_id') OR black_guest_id = current_setting('app.guest_id'))`
+  или привязать к `auth.uid()` для аутентифицированных игроков.
+- Server-side move validation (Edge Function или сервер).
+
+### Синхронизация через Supabase Realtime
+
+`subscribeToRoom()` использует `supabase.channel(...).on('postgres_changes', { event: 'UPDATE', table: 'multiplayer_rooms', filter: 'room_code=eq.{code}' })`.
+
+Нужно включить Realtime для таблицы в Supabase dashboard:
+`Database → Replication → Supabase Realtime → добавить multiplayer_rooms`.
+
+Или командой: `alter publication supabase_realtime add table public.multiplayer_rooms`.
+
+### Идентификация игроков
+
+Использует `profile.id` из `lib/demo/progress.ts` (`localStorage`).
+White player = тот, кто создал комнату. Black player = первый, кто зашёл
+по ссылке с пустым black-слотом. Автоматический join при открытии `/room/[code]`.
+
+### Границы Stage 9.0A
+
+Сознательно НЕ реализовано:
+- Таймеры (bullet/blitz).
+- Рейтинговые комнаты.
+- Spectator chat.
+- Reconnect (достаточно перезагрузить страницу — room грузится из Supabase).
+- Сохранение multiplayer match в обычную match history / review.
+- Matchmaking (случайный соперник).
+- Tournaments.
+- Anti-cheat / сервер-авторизованные ходы.
+
+### Валидация ходов
+
+chess.js валидирует ход клиентски перед UPDATE в Supabase.
+Это не защита от читеров — любой может послать невалидный UPDATE в API.
+Для production нужна Edge Function / server validation.
+
+### Migration
+
+`supabase/migrations/0004_multiplayer_rooms.sql` — применять вручную в
+Supabase SQL Editor. **Не применялось к реальной БД автоматически.**
+
+Для Realtime также нужно:
+```sql
+alter publication supabase_realtime add table public.multiplayer_rooms;
+```

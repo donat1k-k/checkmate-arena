@@ -624,7 +624,10 @@ export default function PlayPage() {
                   {t.blitz.eyebrow}
                 </span>
               </Link>
-              <div className="rounded border border-arena-border bg-arena-panel px-3 py-2">
+              <Link
+                href="/multiplayer"
+                className="rounded border border-arena-border bg-arena-panel px-3 py-2 text-left hover:border-arena-blue block"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <span className="block text-xs font-semibold">{t.play.modeFriend}</span>
@@ -632,22 +635,14 @@ export default function PlayPage() {
                       {t.play.modeFriendBody}
                     </span>
                   </div>
-                  <span className="rounded bg-arena-elevated px-1.5 py-0.5 text-[10px] text-arena-muted">
+                  <span className="rounded bg-arena-amber-bg px-1.5 py-0.5 text-[10px] text-arena-blue">
                     {t.play.roomComingSoon}
                   </span>
                 </div>
-                <div className="mt-2 rounded bg-arena-elevated px-2 py-1 font-mono text-[10px] text-arena-muted">
-                  arena.gg/invite/rook-lab
-                </div>
-                <button
-                  type="button"
-                  disabled
-                  className="mt-2 w-full rounded border border-arena-border px-2 py-1 text-[10px] font-semibold text-arena-muted disabled:cursor-not-allowed"
-                >
+                <span className="mt-2 block w-full rounded border border-arena-blue bg-arena-blue/10 px-2 py-1 text-center text-[10px] font-semibold text-arena-blue">
                   {t.play.createRoom}
-                </button>
-                <p className="mt-1 text-[10px] text-arena-muted">{t.play.realtimeRooms}</p>
-              </div>
+                </span>
+              </Link>
             </div>
           </div>
 
